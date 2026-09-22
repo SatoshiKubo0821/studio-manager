@@ -342,7 +342,7 @@
       <button class="navbtn" data-view="reconcile"><span class="dot"></span>入金消込</button>
       <button class="navbtn" data-view="customers"><span class="dot"></span>顧客名簿</button>
       <button class="navbtn" data-view="coupons"><span class="dot"></span>クーポン</button>
-      <button class="navbtn" data-view="mail"><span class="dot"></span>AIメール文章作成</button>
+      <button class="navbtn" data-view="mail"><span class="dot"></span>メール文章作成</button>
       <button class="navbtn" data-view="settings"><span class="dot"></span>料金設定</button>
       <button class="navbtn" data-view="studios"><span class="dot"></span>スタジオ管理</button>
     </div>
@@ -588,13 +588,13 @@
     <section class="view" id="view-mail">
       <div class="pagehead">
         <div>
-          <h1>AIメール文章作成</h1>
-          <div class="sub">受信メールを貼り付けてAIで確定メール文章を作成</div>
+          <h1>メール文章作成</h1>
+          <div class="sub">受信メールを貼り付けてテンプレートから確定メール文章を作成</div>
         </div>
       </div>
 
       <div class="banner">
-        メールの自動受信・自動送信はできません。下の欄に届いたメールの本文を貼り付けると、AIまたはテンプレートで確定メール文章を作成できます。作成した文章はコピーしてXserverメールなどから送信してください。
+        メールの自動受信・自動送信はできません。下の欄に届いたメールの本文を貼り付け、テンプレートを選択すると確定メール文章を自動作成できます。作成した文章はコピーしてXserverメールなどから送信してください。
       </div>
 
       <div class="card">
@@ -607,16 +607,10 @@
           <div class="field">
             <textarea id="mailInboxBody" rows="10" placeholder="お客様から届いたメールの本文をそのまま貼り付けてください"></textarea>
           </div>
-          <div class="row2">
-            <div class="field">
-              <label>テンプレート(任意・選択すると即反映)</label>
-              <select id="mailTemplateSelect"><option value="">(選択せずAIで作成)</option></select>
-            </div>
-            <div class="field" style="display:flex; align-items:flex-end;">
-              <button class="btn primary" id="btnAiDraftMail" style="width:100%;" type="button">✨ 確定メール文章をAIで作成</button>
-            </div>
+          <div class="field">
+            <label>テンプレート(選択すると即反映)</label>
+            <select id="mailTemplateSelect"><option value="">(テンプレートを選択してください)</option></select>
           </div>
-          <div class="muted" id="aiMailNote" style="font-size:.76rem;"></div>
         </div>
       </div>
 
@@ -931,9 +925,29 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+
 <script>
 (function(){
   "use strict";
+
+  // ---------- Firebase ----------
+  // これらの値はクライアント側に公開される前提の設定情報です(秘密鍵ではありません)。
+  // アクセス制御はFirestoreのセキュリティルール側(ログイン済みユーザーのみ許可)で行います。
+  const firebaseConfig = {
+    apiKey: "AIzaSyACp9VHzgKgkUAaQrDKZqBN__aDFiICTOg",
+    authDomain: "studiomanager-5eb1d.firebaseapp.com",
+    projectId: "studiomanager-5eb1d",
+    storageBucket: "studiomanager-5eb1d.firebasestorage.app",
+    messagingSenderId: "978057032673",
+    appId: "1:978057032673:web:31f52f1bbd2b9dd51fd8a0",
+    measurementId: "G-18MR0B1KDE"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
 
   const $ = (id)=>document.getElementById(id);
   const yen = (n)=> "¥" + Math.round(n||0).toLocaleString("ja-JP");
@@ -989,15 +1003,9 @@
   let coupons = [];
   let templates = [];      // {id, studioId(or null=共通), name, subject, body}
   let currentUserEmail = null;
-  const UNLOCK_KEY = "studiomanager.loggedInEmail";
-  const LOCAL_ACCOUNT_KEY = "studiomanager.localaccount";
   function safeGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
   function safeSet(key,val){ try{ localStorage.setItem(key,val); }catch(e){} }
   function safeRemove(key){ try{ localStorage.removeItem(key); }catch(e){} }
-  let db = null;
-  let dbAvailable = false;
-  let canWrite = true;
-  let sampleFn = null;
   let currentStudioId = null; // ALL or a studio id
   let migrationChecked = false;
 
@@ -1879,7 +1887,6 @@
     const prevStudio = $("mailStudioSelect").value;
     populateMailStudioSelect($("mailStudioSelect"), prevStudio || undefined);
     populateTemplateSelectForMail($("mailStudioSelect").value, $("mailTemplateSelect").value);
-    updateAiMailButtonVisibility();
   }
   $("mailStudioSelect").addEventListener("change", ()=>{
     populateTemplateSelectForMail($("mailStudioSelect").value, "");
@@ -1894,63 +1901,6 @@
     $("mailOutputBody").value = (t.subject? `【件名】${t.subject}\n\n`:"") + fillTemplate(t.body, vals);
   });
 
-  // ---- AI mail creation (uses the viewer's own Claude account via the sample capability) ----
-  function updateAiMailButtonVisibility(){
-    const has = !!sampleFn;
-    $("btnAiDraftMail").hidden = !has;
-    if(!has) $("aiMailNote").textContent = "この環境ではAI文章作成を利用できません(テンプレートをご利用ください)。";
-  }
-  let aiMailAbort = null;
-  $("btnAiDraftMail").addEventListener("click", async ()=>{
-    if(!sampleFn){ toast("この画面ではAIメール作成を利用できません"); return; }
-    const studioId = $("mailStudioSelect").value;
-    if(!studioId){ toast("スタジオを選択してください"); return; }
-    const st = getStudio(studioId);
-    const inquiryBody = ($("mailInboxBody").value || "").trim();
-    if(!inquiryBody){ toast("先に受信メールの本文を貼り付けてください"); return; }
-    const parsed = parseInquiryText(inquiryBody, st);
-    const plan = (st && parsed.planId) ? (st.plans||[]).find(p=>p.id===parsed.planId) : null;
-
-    const tid = $("mailTemplateSelect").value;
-    const t = tid ? templates.find(x=>x.id===tid) : null;
-
-    let prompt = "あなたはレンタル撮影スタジオのスタッフです。以下のお客様からの問い合わせメールに対する、丁寧で自然な日本語の返信メール本文を作成してください。\n";
-    prompt += "件名は不要で、本文のみを出力してください。前置きや説明は書かず、メール本文だけを返答してください。\n\n";
-    prompt += `■スタジオ名: ${st? st.name : ""}\n`;
-    if(parsed.customerName) prompt += `■お客様名: ${parsed.customerName}\n`;
-    if(parsed.date || plan){
-      prompt += `■問い合わせ内容から読み取れた予約情報(未確定・参考情報):\n  日時: ${parsed.date||"(不明)"} ${parsed.startTime||""}〜${parsed.endTime||""}\n  プラン: ${plan? plan.name : "(不明)"}\n`;
-    }
-    if(t){
-      prompt += `\n■参考にする文面のトーン・構成(このスタジオの定型文):\n${t.body}\n`;
-    }
-    prompt += `\n■お客様からの問い合わせ本文:\n${inquiryBody.slice(0,4000)}\n`;
-    prompt += "\n上記を踏まえ、問い合わせ内容に沿った返信メール本文を作成してください。日時やプランが読み取れた場合はその詳細を盛り込み、末尾に軽い挨拶を添えてください。";
-
-    aiMailAbort = new AbortController();
-    const btn = $("btnAiDraftMail");
-    btn.disabled = true;
-    $("aiMailNote").textContent = "AIが下書きを作成しています…";
-    $("mailOutputBody").value = "";
-    try{
-      const { truncated } = await sampleFn(prompt, {
-        signal: aiMailAbort.signal,
-        modelTier: "default",
-        cache: false,
-        onText: ({text})=>{ $("mailOutputBody").value = text; },
-      });
-      $("aiMailNote").textContent = truncated ? "文字数の上限で途中までの生成になりました。内容を確認・調整してください。" : "AIが下書きを作成しました。内容を確認のうえ、ご利用ください。";
-    }catch(e){
-      if(e && e.text) $("mailOutputBody").value = e.text;
-      let msg = "AIメール作成に失敗しました。もう一度お試しください。";
-      if(e && e.code==="not_granted") msg = "AIメール作成の利用が許可されていません。";
-      else if(e && e.code==="cancelled") msg = "";
-      else if(e && e.code==="rate_limited") msg = "しばらく時間を置いてから再度お試しください。";
-      $("aiMailNote").textContent = msg;
-    }finally{
-      btn.disabled = false;
-    }
-  });
   // ---- copy confirmation dialog (always shown before actually writing to clipboard) ----
   let pendingCopyText = "", pendingCopyLabel = "";
   function openCopyConfirm(text, label){
@@ -2194,55 +2144,26 @@
   });
 
   // =====================================================================
-  // DB WIRING
+  // DB WIRING (Firestore)
   // =====================================================================
-  function localId(){ return "local_"+Date.now()+"_"+Math.random().toString(36).slice(2,7); }
-
   async function createStudio(seed){
-    if(!dbAvailable){
-      seed.id = localId(); studios.push(seed);
-      renderStudioSwitcher(); renderCurrentView();
-      toast("保存しました(この端末のみ・共有されません)");
-      return;
-    }
     try{
-      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return; }
       await db.collection("studios").add(seed);
       toast("スタジオを追加しました");
     }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
   }
   async function saveStudio(id, patch){
-    if(!dbAvailable){
-      const s = getStudio(id); if(s) Object.assign(s, patch);
-      renderStudioSwitcher(); renderCurrentView();
-      return;
-    }
     try{
-      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return; }
       await db.collection("studios").doc(id).update(patch);
     }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
   }
   async function deleteStudio(id){
-    if(!dbAvailable){
-      studios = studios.filter(s=>s.id!==id);
-      if(currentStudioId===id) currentStudioId=ALL;
-      renderStudioSwitcher(); renderCurrentView();
-      return;
-    }
     try{ await db.collection("studios").doc(id).delete(); toast("削除しました"); }
     catch(e){ toast("削除に失敗しました"); }
   }
 
   async function saveReservation(id, data){
-    if(!dbAvailable){
-      if(id){ const i=reservations.findIndex(r=>r.id===id); reservations[i]={...reservations[i],...data}; }
-      else { id=localId(); data.id=id; data.createdAt=new Date().toISOString(); reservations.push(data); }
-      renderCurrentView();
-      toast("保存しました(この端末のみ・共有されません)");
-      return id;
-    }
     try{
-      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return null; }
       let outId = id;
       if(id){ await db.collection("reservations").doc(id).update(data); }
       else{ data.createdAt = new Date().toISOString(); const ref = await db.collection("reservations").add(data); outId = ref.id; }
@@ -2251,49 +2172,30 @@
     }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); return null; }
   }
   async function deleteReservation(id){
-    if(!dbAvailable){ reservations = reservations.filter(r=>r.id!==id); renderCurrentView(); return; }
     try{ await db.collection("reservations").doc(id).delete(); toast("削除しました"); }
     catch(e){ toast("削除に失敗しました"); }
   }
 
   async function saveTemplate(id, data){
-    if(!dbAvailable){
-      if(id){ const i=templates.findIndex(t=>t.id===id); templates[i]={...templates[i],...data}; }
-      else { data.id=localId(); templates.push(data); }
-      renderTemplateList();
-      toast("保存しました(この端末のみ・共有されません)");
-      return;
-    }
     try{
-      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return; }
       if(id){ await db.collection("mailTemplates").doc(id).update(data); }
       else{ await db.collection("mailTemplates").add(data); }
       toast("保存しました");
     }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
   }
   async function deleteTemplate(id){
-    if(!dbAvailable){ templates = templates.filter(t=>t.id!==id); renderTemplateList(); return; }
     try{ await db.collection("mailTemplates").doc(id).delete(); toast("削除しました"); }
     catch(e){ toast("削除に失敗しました"); }
   }
 
   async function saveCoupon(id, data){
-    if(!dbAvailable){
-      if(id){ const i=coupons.findIndex(c=>c.id===id); coupons[i]={...coupons[i],...data}; }
-      else { data.id=localId(); coupons.push(data); }
-      renderCouponsTable();
-      toast("保存しました(この端末のみ・共有されません)");
-      return;
-    }
     try{
-      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return; }
       if(id){ await db.collection("coupons").doc(id).update(data); }
       else{ await db.collection("coupons").add(data); }
       toast("保存しました");
     }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
   }
   async function deleteCoupon(id){
-    if(!dbAvailable){ coupons = coupons.filter(c=>c.id!==id); renderCouponsTable(); return; }
     try{ await db.collection("coupons").doc(id).delete(); toast("削除しました"); }
     catch(e){ toast("削除に失敗しました"); }
   }
@@ -2302,7 +2204,7 @@
   async function maybeMigrateLegacy(){
     if(migrationChecked) return;
     migrationChecked = true;
-    if(!dbAvailable || studios.length>0) return;
+    if(studios.length>0) return;
     try{
       const legacy = await db.doc("config/pricing").get();
       const seed = defaultStudioSeed();
@@ -2361,30 +2263,13 @@
       body:"{{customerName}} 様\n\nこの度はご予約いただき誠にありがとうございます。\n以下の内容でご予約を確定いたしましたのでご確認くださいませ。\n\n■ご予約日時\n{{date}} {{startTime}}〜{{endTime}}\n■プラン\n{{planName}}\n■合計金額\n{{total}}\n\nご不明点がございましたら本メールにご返信ください。\nどうぞよろしくお願いいたします。\n\n{{studioName}}",
       createdAt:new Date().toISOString(),
     };
-    if(dbAvailable && canWrite) db.collection("mailTemplates").add(seed).catch(()=>{});
+    db.collection("mailTemplates").add(seed).catch(()=>{});
   }
 
   // =====================================================================
-  // LOCK SCREEN (per-person email + password accounts)
+  // LOCK SCREEN (Firebase Authentication: email + password)
   // =====================================================================
   function normalizeEmail(e){ return (e||"").trim().toLowerCase(); }
-  function bufToHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join(""); }
-  function hexToBuf(hex){
-    const bytes = new Uint8Array(hex.length/2);
-    for(let i=0;i<bytes.length;i++) bytes[i] = parseInt(hex.substr(i*2,2),16);
-    return bytes;
-  }
-  function randomSaltHex(){ return bufToHex(crypto.getRandomValues(new Uint8Array(16)).buffer); }
-  async function hashPassword(password, saltHex){
-    // PBKDF2-SHA256, 100k iterations. Only the salt+hash are ever stored/compared — the plain password never leaves this function.
-    const enc = new TextEncoder();
-    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), {name:"PBKDF2"}, false, ["deriveBits"]);
-    const bits = await crypto.subtle.deriveBits(
-      {name:"PBKDF2", salt:hexToBuf(saltHex), iterations:100000, hash:"SHA-256"},
-      keyMaterial, 256
-    );
-    return bufToHex(bits);
-  }
 
   function showLockErr(msg, elId){
     $(elId||"lockErr").textContent = msg;
@@ -2408,31 +2293,24 @@
   $("btnShowRegister").addEventListener("click", showRegisterForm);
   $("btnShowLogin").addEventListener("click", showLoginForm);
 
-  async function getAccount(email){
-    if(dbAvailable){
-      const snap = await db.doc("accounts/"+email).get();
-      return snap.exists ? snap.data() : null;
-    }
-    const raw = safeGet(LOCAL_ACCOUNT_KEY);
-    if(!raw) return null;
-    try{ const acc = JSON.parse(raw); return acc.email===email ? acc : null; }catch(e){ return null; }
-  }
-  async function setAccount(email, data){
-    if(dbAvailable){
-      await db.doc("accounts/"+email).set(data);
-    } else {
-      safeSet(LOCAL_ACCOUNT_KEY, JSON.stringify({email, ...data}));
-    }
-  }
-
   function unlockApp(email){
     currentUserEmail = email;
-    safeSet(UNLOCK_KEY, email);
     $("currentUserLabel").textContent = "ログイン中: " + email;
     $("lockScreen").style.display = "none";
     $("app").classList.remove("locked");
     renderStudioSwitcher();
     renderCurrentView();
+  }
+
+  function authErrorMessage(e){
+    const code = e && e.code || "";
+    if(code==="auth/invalid-email") return "メールアドレスの形式が正しくありません";
+    if(code==="auth/user-not-found") return "このメールアドレスのアカウントが見つかりません";
+    if(code==="auth/wrong-password" || code==="auth/invalid-credential") return "メールアドレスまたはパスワードが違います";
+    if(code==="auth/email-already-in-use") return "このメールアドレスは既に登録されています";
+    if(code==="auth/weak-password") return "パスワードは6文字以上で設定してください";
+    if(code==="auth/too-many-requests") return "試行回数が多すぎます。しばらくしてから再度お試しください";
+    return (e && e.message) || "エラーが発生しました";
   }
 
   $("lockSubmit").addEventListener("click", async ()=>{
@@ -2443,13 +2321,11 @@
     const btn = $("lockSubmit");
     btn.disabled = true; $("loginEmail").disabled = true; $("loginPassword").disabled = true;
     try{
-      const acc = await getAccount(email);
-      if(!acc){ showLockErr("このメールアドレスのアカウントが見つかりません"); return; }
-      const hash = await hashPassword(password, acc.passwordSalt);
-      if(hash !== acc.passwordHash){ showLockErr("パスワードが違います"); $("loginPassword").value=""; return; }
-      unlockApp(email);
+      await auth.signInWithEmailAndPassword(email, password);
+      // unlockApp() is triggered by onAuthStateChanged below
     }catch(e){
-      showLockErr("ログインに失敗しました: "+(e&&e.message||e));
+      showLockErr(authErrorMessage(e));
+      $("loginPassword").value="";
     }finally{
       btn.disabled = false; $("loginEmail").disabled = false; $("loginPassword").disabled = false;
     }
@@ -2463,19 +2339,14 @@
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showLockErr("メールアドレスの形式が正しくありません", "regErr"); return; }
     if(password.length<6){ showLockErr("パスワードは6文字以上で設定してください", "regErr"); return; }
     if(password!==password2){ showLockErr("パスワードが一致しません", "regErr"); return; }
-    if(dbAvailable && !canWrite){ showLockErr("このアカウントは閲覧のみのため新規登録できません。管理者に依頼してください", "regErr"); return; }
     const btn = $("registerSubmit");
     btn.disabled = true;
     try{
-      const existing = await getAccount(email);
-      if(existing){ showLockErr("このメールアドレスは既に登録されています", "regErr"); return; }
-      const salt = randomSaltHex();
-      const hash = await hashPassword(password, salt);
-      await setAccount(email, {email, passwordSalt:salt, passwordHash:hash, createdAt:new Date().toISOString()});
-      toast(dbAvailable ? "アカウントを作成しました" : "アカウントを作成しました(この端末のみ・共有されません)");
-      unlockApp(email);
+      await auth.createUserWithEmailAndPassword(email, password);
+      toast("アカウントを作成しました");
+      // unlockApp() is triggered by onAuthStateChanged below
     }catch(e){
-      showLockErr("登録に失敗しました: "+(e&&e.message||e), "regErr");
+      showLockErr(authErrorMessage(e), "regErr");
     }finally{
       btn.disabled = false;
     }
@@ -2483,59 +2354,28 @@
   $("regPassword2").addEventListener("keydown", (e)=>{ if(e.key==="Enter") $("registerSubmit").click(); });
 
   $("btnLockNow").addEventListener("click", ()=>{
-    safeRemove(UNLOCK_KEY);
-    location.reload();
+    auth.signOut();
   });
 
-  async function initLock(){
-    const savedEmail = safeGet(UNLOCK_KEY);
-    if(savedEmail){ unlockApp(savedEmail); return; }
-    $("lockScreen").style.display = "flex";
-    showLoginForm();
-  }
+  let dbSubscribed = false;
+  auth.onAuthStateChanged(user=>{
+    if(user){
+      if(!dbSubscribed){ dbSubscribed = true; subscribeAll(); }
+      unlockApp(user.email);
+    } else {
+      currentUserEmail = null;
+      $("lockScreen").style.display = "flex";
+      $("app").classList.add("locked");
+      showLoginForm();
+    }
+  });
 
   async function init(){
     const pref = loadCurrentStudioPref();
     if(pref) currentStudioId = pref;
     renderStudioSwitcher();
     renderCurrentView();
-
-    if(window.claude && window.claude.use){
-      try{
-        const [dbNs, userNs, sampleNs] = await Promise.all([claude.use("db"), claude.use("user"), claude.use("sample")]);
-        sampleFn = sampleNs || null;
-        updateAiMailButtonVisibility();
-        if(dbNs){
-          db = dbNs; dbAvailable = true;
-          if(userNs){
-            try{ canWrite = await userNs.can("data.write"); if(canWrite===null) canWrite = true; }
-            catch(e){ canWrite = true; }
-          }
-          subscribeAll();
-        } else {
-          seedLocalDefaults(); showLocalBanner();
-        }
-      }catch(e){ seedLocalDefaults(); showLocalBanner(); }
-    } else {
-      seedLocalDefaults(); showLocalBanner();
-    }
-    await initLock();
-  }
-  function seedLocalDefaults(){
-    const seed = defaultStudioSeed(); seed.id = localId();
-    studios = [seed];
-    templates = [{
-      id: localId(), name:"予約確定のご案内", studioId:null,
-      subject:"【ご予約確定】{{studioName}}",
-      body:"{{customerName}} 様\n\nこの度はご予約いただき誠にありがとうございます。\n以下の内容でご予約を確定いたしましたのでご確認くださいませ。\n\n■ご予約日時\n{{date}} {{startTime}}〜{{endTime}}\n■プラン\n{{planName}}\n■合計金額\n{{total}}\n\nご不明点がございましたら本メールにご返信ください。\nどうぞよろしくお願いいたします。\n\n{{studioName}}",
-    }];
-    renderStudioSwitcher(); renderCurrentView();
-  }
-  function showLocalBanner(){
-    const b = document.createElement("div");
-    b.className = "banner";
-    b.textContent = "共有データベースに接続できませんでした。この端末のみで一時的にご利用いただけます(データは他の人と共有されません)。";
-    document.getElementById("main").prepend(b);
+    // auth.onAuthStateChanged (above) drives showing the lock screen vs. the app.
   }
 
   init();
