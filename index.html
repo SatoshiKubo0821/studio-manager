@@ -1,0 +1,2545 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Studio Manager</title>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap">
+<style>
+  :root{
+    --bg:#f4f5f6;
+    --surface:#ffffff;
+    --surface-2:#eef0f3;
+    --text:#1c2430;
+    --text-dim:#5c6675;
+    --border:#dbdfe6;
+    --accent:#1f3a5f;
+    --accent-2:#3d6b96;
+    --accent-soft:#e6ebf2;
+    --good:#1a7a4c;
+    --good-soft:#e0f2e8;
+    --warn:#9c6b0a;
+    --warn-soft:#f7ecd6;
+    --shadow: 0 1px 2px rgba(20,24,32,.04), 0 8px 20px rgba(20,24,32,.05);
+    --radius:10px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0e1116; --surface:#151a22; --surface-2:#1c222c;
+      --text:#e9edf3; --text-dim:#8b93a3; --border:#2a3140;
+      --accent:#6f9bc9; --accent-2:#8fb0cf; --accent-soft:#1e2836;
+      --good:#4bb885; --good-soft:#123324; --warn:#d1a441; --warn-soft:#332a12;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0e1116; --surface:#151a22; --surface-2:#1c222c;
+    --text:#e9edf3; --text-dim:#8b93a3; --border:#2a3140;
+    --accent:#6f9bc9; --accent-2:#8fb0cf; --accent-soft:#1e2836;
+    --good:#4bb885; --good-soft:#123324; --warn:#d1a441; --warn-soft:#332a12;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px rgba(0,0,0,.45);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Noto Sans JP","Hiragino Kaku Gothic ProN",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .brand{ font-weight:700; letter-spacing:0; }
+  ::selection{ background:var(--accent); color:#fff; }
+
+  #app{ display:flex; min-height:100dvh; }
+
+  /* ---------- Sidebar ---------- */
+  #sidebar{
+    width:230px; flex:none; background:var(--surface); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:20px 14px; gap:4px;
+  }
+  #sidebar .logo{ padding:6px 10px 14px; font-size:1.05rem; font-weight:800; color:var(--text); }
+  #sidebar .logo span{ color:var(--accent); }
+  #sidebar .logo small{ display:block; font-family:"Noto Sans JP",sans-serif; font-weight:500; font-size:.68rem; color:var(--text-dim); letter-spacing:.1em; margin-top:2px; }
+
+  .studio-switcher{ margin-bottom:16px; }
+  .studio-switcher label{ font-size:.68rem; font-weight:700; color:var(--text-dim); letter-spacing:.05em; margin-bottom:4px; display:block; padding:0 2px; }
+  .studio-switcher select{ font-weight:700; }
+  .studio-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
+
+  .navbtn{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px;
+    color:var(--text-dim); font-size:.88rem; font-weight:600; cursor:pointer;
+    border:1px solid transparent; background:none; text-align:left; width:100%;
+  }
+  .navbtn:hover{ background:var(--surface-2); color:var(--text); }
+  .navbtn.active{ background:var(--accent-soft); color:var(--accent); border-color:var(--accent); }
+  .navbtn .dot{ width:6px;height:6px;border-radius:50%; background:currentColor; flex:none; }
+  .navbtn{ position:relative; }
+  .navbadge{
+    margin-left:auto; background:var(--accent); color:#fff; font-size:.66rem; font-weight:800;
+    border-radius:99px; padding:1px 7px; min-width:18px; text-align:center;
+  }
+  #sidebar .foot{ margin-top:auto; padding:10px; font-size:.7rem; color:var(--text-dim); line-height:1.6; }
+
+  /* ---------- Main ---------- */
+  #main{ flex:1; min-width:0; padding:28px 32px 60px; max-width:1180px; }
+  .pagehead{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:22px; flex-wrap:wrap; }
+  .pagehead h1{ font-size:1.4rem; font-weight:800; margin:0; }
+  .pagehead .sub{ color:var(--text-dim); font-size:.85rem; }
+
+  .view{ display:none; }
+  .view.active{ display:block; }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
+  .card + .card{ margin-top:18px; }
+  .card .card-head{ padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .card .card-head h2{ font-size:.95rem; font-weight:700; margin:0; }
+  .card .card-body{ padding:18px 20px; }
+
+  .kpis{ display:grid; grid-template-columns:repeat(7,1fr); gap:14px; margin-bottom:18px; }
+  @media (max-width:1180px){ .kpis{ grid-template-columns:repeat(4,1fr); } }
+  @media (max-width:980px){ .kpis{ grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:820px){ .kpis{ grid-template-columns:repeat(2,1fr); } }
+  .kpi{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:16px 18px; box-shadow:var(--shadow); }
+  .kpi .label{ font-size:.72rem; color:var(--text-dim); font-weight:600; letter-spacing:.03em; }
+  .kpi .value{ font-size:1.4rem; font-weight:700; margin-top:6px; font-variant-numeric:tabular-nums; }
+  .kpi.accent .value{ color:var(--accent); }
+  .kpi.good .value{ color:var(--good); }
+  .kpi.warn .value{ color:var(--warn); }
+
+  select, input[type=text], input[type=date], input[type=time], input[type=month], input[type=number], input[type=tel], input[type=color], textarea{
+    font:inherit; color:var(--text); background:var(--surface-2);
+    border:1px solid var(--border); border-radius:9px; padding:8px 10px; width:100%;
+  }
+  input[type=color]{ padding:3px; height:38px; cursor:pointer; }
+  select:focus, input:focus, textarea:focus{ outline:2px solid var(--accent-2); outline-offset:1px; }
+  label{ font-size:.76rem; font-weight:600; color:var(--text-dim); display:block; margin-bottom:5px; }
+  .field{ margin-bottom:12px; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .row3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  @media (max-width:700px){ .row2,.row3{ grid-template-columns:1fr; } }
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    font:inherit; font-weight:700; font-size:.85rem; cursor:pointer;
+    border-radius:9px; border:1px solid var(--border); padding:9px 16px;
+    background:var(--surface-2); color:var(--text);
+  }
+  .btn:hover{ filter:brightness(1.05); }
+  .btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn.ghost{ background:transparent; }
+  .btn.danger{ color:#e5484d; border-color:#e5484d33; background:transparent; }
+  .btn.sm{ padding:5px 10px; font-size:.76rem; }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .pill{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:.72rem; font-weight:700; }
+  .pill.good{ background:var(--good-soft); color:var(--good); }
+  .pill.warn{ background:var(--warn-soft); color:var(--warn); }
+  .pill.muted{ background:var(--surface-2); color:var(--text-dim); }
+  .pill.daytype-weekday{ background:var(--surface-2); color:var(--text-dim); }
+  .pill.daytype-weekend{ background:var(--accent-soft); color:var(--accent); }
+  .pill.studio{ background:var(--surface-2); color:var(--text); }
+  .pill.studio .studio-dot{ margin-right:2px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:.82rem; }
+  th{ text-align:left; color:var(--text-dim); font-weight:600; font-size:.72rem; letter-spacing:.03em; padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  td{ padding:10px; border-bottom:1px solid var(--border); vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  .tablewrap{ overflow-x:auto; }
+  td.num, th.num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .muted{ color:var(--text-dim); }
+  .empty{ padding:40px 20px; text-align:center; color:var(--text-dim); font-size:.85rem; }
+
+  .checklist{ display:flex; flex-direction:column; gap:8px; }
+  .checkrow{ display:flex; align-items:center; gap:8px; font-size:.85rem; }
+  .checkrow input{ width:auto; }
+
+  .totalbox{ background:var(--surface-2); border:1px dashed var(--border); border-radius:10px; padding:12px 14px; font-size:.85rem; display:flex; flex-direction:column; gap:5px; }
+  .totalbox .line{ display:flex; justify-content:space-between; }
+  .totalbox .line.total{ font-weight:800; font-size:1.05rem; border-top:1px solid var(--border); padding-top:7px; margin-top:2px; }
+  .totalbox .line.discount{ color:var(--good); }
+
+  .chart{ width:100%; height:180px; }
+  .chart .bar{ fill:var(--accent); }
+  .chart .bar:hover{ fill:var(--accent-2); }
+  .chart .axis{ stroke:var(--border); stroke-width:1; }
+  .chart text{ fill:var(--text-dim); font-size:9px; font-family:"Noto Sans JP",sans-serif; }
+
+  .banner{ font-size:.78rem; padding:9px 14px; border-radius:9px; margin-bottom:14px; background:var(--warn-soft); color:var(--warn); border:1px solid transparent; }
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:var(--text); color:var(--bg); padding:9px 18px; border-radius:99px;
+    font-size:.8rem; font-weight:600; box-shadow:var(--shadow); opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(-4px); }
+
+  .icon-x{ cursor:pointer; color:var(--text-dim); font-size:1.1rem; line-height:1; }
+  .icon-x:hover{ color:#e5484d; }
+
+  /* ---------- Calendar ---------- */
+  .cal-head{ display:flex; align-items:center; justify-content:center; gap:14px; }
+  .cal-head .cal-month-label{ font-weight:800; font-size:1rem; min-width:120px; text-align:center; font-variant-numeric:tabular-nums; }
+  .cal-navbtn{
+    width:30px; height:30px; border-radius:8px; border:1px solid var(--border); background:var(--surface-2);
+    color:var(--text); cursor:pointer; font-size:.9rem; display:flex; align-items:center; justify-content:center;
+  }
+  .cal-navbtn:hover{ background:var(--accent-soft); color:var(--accent); }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:14px; }
+  .cal-dow{ text-align:center; font-size:.68rem; font-weight:700; color:var(--text-dim); padding-bottom:4px; }
+  .cal-dow.sun{ color:#e5484d; } .cal-dow.sat{ color:var(--accent-2); }
+  .cal-cell{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+    min-height:88px; padding:6px; display:flex; flex-direction:column; gap:3px; cursor:pointer;
+    transition:border-color .12s;
+  }
+  .cal-cell:hover{ border-color:var(--accent-2); }
+  .cal-cell.empty{ background:transparent; border-color:transparent; cursor:default; }
+  .cal-cell.today{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+  .cal-daynum{ font-size:.72rem; font-weight:700; color:var(--text-dim); display:flex; justify-content:space-between; align-items:center; }
+  .cal-cell.sun .cal-daynum{ color:#e5484d; } .cal-cell.sat .cal-daynum{ color:var(--accent-2); }
+  .cal-daynum .cal-add{ opacity:0; font-weight:800; color:var(--accent); }
+  .cal-cell:hover .cal-add{ opacity:1; }
+  .cal-events{ display:flex; flex-direction:column; gap:2px; overflow:hidden; }
+  .cal-event{
+    font-size:.66rem; line-height:1.3; padding:2px 5px; border-radius:5px; color:#fff;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:600;
+    display:flex; align-items:center; gap:3px;
+  }
+  .cal-event .st{ width:5px; height:5px; border-radius:50%; background:#fff; flex:none; opacity:.85; }
+  .cal-event.unpaid{ outline:1.5px dashed rgba(255,255,255,.7); outline-offset:-2px; }
+  .cal-more{ font-size:.64rem; color:var(--text-dim); font-weight:700; padding-left:5px; cursor:pointer; }
+  .cal-more:hover{ color:var(--accent); }
+  @media (max-width:700px){
+    .cal-grid{ gap:4px; }
+    .cal-cell{ min-height:64px; padding:4px; }
+    .cal-event{ font-size:.6rem; }
+  }
+
+  /* ---------- Day detail modal ---------- */
+  .daylist{ display:flex; flex-direction:column; gap:8px; }
+  .dayitem{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--border);
+    border-radius:10px; cursor:pointer;
+  }
+  .dayitem:hover{ border-color:var(--accent-2); }
+  .dayitem .time{ font-weight:700; font-variant-numeric:tabular-nums; font-size:.8rem; min-width:96px; }
+  .dayitem .desc{ flex:1; min-width:0; font-size:.82rem; }
+  .dayitem .desc .plan{ color:var(--text-dim); font-size:.74rem; }
+
+  .tplcard{ display:flex; align-items:center; gap:10px; padding:11px 14px; border:1px solid var(--border); border-radius:10px; }
+  .tplcard + .tplcard{ margin-top:8px; }
+  .tplcard .name{ font-weight:700; font-size:.85rem; }
+  .tplcard .snippet{ font-size:.74rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .placeholder-hints{ display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+  .placeholder-chip{
+    font-size:.68rem; font-weight:700; background:var(--surface-2); color:var(--accent-2);
+    border:1px solid var(--border); border-radius:6px; padding:2px 7px; cursor:pointer; font-family:monospace;
+  }
+  .placeholder-chip:hover{ background:var(--accent-soft); color:var(--accent); }
+
+  /* ---------- Lock screen ---------- */
+  #lockScreen{
+    position:fixed; inset:0; z-index:100; background:var(--bg);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+  }
+  .lockcard{
+    width:100%; max-width:360px; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius); box-shadow:var(--shadow); padding:36px 30px; text-align:center;
+  }
+  .lockcard .lock-emblem{
+    width:52px; height:52px; margin:0 auto 16px; border-radius:12px;
+    background:var(--accent);
+    display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow);
+  }
+  .lockcard .lock-emblem svg{ width:24px; height:24px; stroke:#fff; }
+  .lockcard .logo{ font-size:1.25rem; font-weight:800; margin-bottom:4px; }
+  .lockcard .logo span{ color:var(--accent); }
+  .lockcard .sub{ font-size:.82rem; color:var(--text-dim); margin-bottom:18px; min-height:1.4em; transition:opacity .15s; }
+  .lockcard .field{ text-align:left; }
+  .lockcard input:disabled, .lockcard button:disabled{ opacity:.55; cursor:not-allowed; }
+  .lockerr{ color:#e5484d; font-size:.76rem; margin-top:8px; min-height:1em; text-align:left; }
+  .lockcard.shake{ animation:lockshake .32s; }
+  @keyframes lockshake{
+    10%,90%{ transform:translateX(-1px); } 20%,80%{ transform:translateX(2px); }
+    30%,50%,70%{ transform:translateX(-5px); } 40%,60%{ transform:translateX(5px); }
+  }
+  .lockfoot{ margin-top:18px; font-size:.7rem; color:var(--text-dim); line-height:1.6; }
+  .lock-switch{ color:var(--accent); font-weight:700; cursor:pointer; }
+  .lock-switch:hover{ text-decoration:underline; }
+  #app.locked{ display:none; }
+
+  .studiocard{ display:flex; align-items:center; gap:12px; padding:14px 16px; border:1px solid var(--border); border-radius:12px; }
+  .studiocard + .studiocard{ margin-top:10px; }
+  .studiocard .swatch{ width:14px; height:14px; border-radius:50%; flex:none; }
+  .studiocard .info{ flex:1; min-width:0; }
+  .studiocard .info .name{ font-weight:700; }
+  .studiocard .info .meta{ font-size:.75rem; color:var(--text-dim); }
+
+  @media (max-width:760px){
+    #app{ flex-direction:column; }
+    #sidebar{ width:100%; flex-direction:column; padding:12px 14px; border-right:none; border-bottom:1px solid var(--border); }
+    #sidebar .logo{ padding-bottom:8px; }
+    #sidebar .navrow{ display:flex; overflow-x:auto; gap:4px; }
+    .navbtn{ width:auto; white-space:nowrap; }
+    #sidebar .foot{ display:none; }
+    #main{ padding:18px 16px 50px; }
+    .kpis{ grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+
+<div id="lockScreen" style="display:none;">
+  <div class="lockcard" id="lockCard">
+    <div class="lock-emblem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="11" rx="2"></rect><path d="M7 10V7a5 5 0 0 1 10 0v3"></path></svg></div>
+    <div class="logo brand">Studio<span>Manager</span></div>
+    <div class="sub" id="lockSub">メールアドレスとパスワードでログインしてください</div>
+
+    <div id="loginFormWrap">
+      <div class="field">
+        <label>メールアドレス</label>
+        <input type="email" id="loginEmail" autocomplete="username" placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label>パスワード</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" placeholder="パスワード">
+      </div>
+      <div class="lockerr" id="lockErr"></div>
+      <button class="btn primary" id="lockSubmit" style="width:100%; margin-top:6px;">ログイン</button>
+      <div class="lockfoot">アカウントをお持ちでない方は <span class="lock-switch" id="btnShowRegister">新規登録</span></div>
+    </div>
+
+    <div id="registerFormWrap" style="display:none;">
+      <div class="field">
+        <label>メールアドレス</label>
+        <input type="email" id="regEmail" autocomplete="username" placeholder="you@example.com">
+      </div>
+      <div class="field">
+        <label>パスワード(6文字以上)</label>
+        <input type="password" id="regPassword" autocomplete="new-password" placeholder="パスワード">
+      </div>
+      <div class="field">
+        <label>パスワード(確認)</label>
+        <input type="password" id="regPassword2" autocomplete="new-password" placeholder="もう一度入力">
+      </div>
+      <div class="lockerr" id="regErr"></div>
+      <button class="btn primary" id="registerSubmit" style="width:100%; margin-top:6px;">アカウントを作成</button>
+      <div class="lockfoot">すでにアカウントをお持ちの方は <span class="lock-switch" id="btnShowLogin">ログイン</span></div>
+    </div>
+
+    <div class="lockfoot">複数スタジオ対応 予約・売上管理ツール</div>
+  </div>
+</div>
+
+<div id="app" class="locked">
+  <nav id="sidebar">
+    <div class="logo brand">Studio<span>Manager</span><small>MULTI-STUDIO EDITION</small></div>
+
+    <div class="studio-switcher">
+      <label>表示中のスタジオ</label>
+      <select id="studioSwitcher"></select>
+    </div>
+
+    <div class="navrow" style="display:flex; flex-direction:column; gap:4px;">
+      <button class="navbtn active" data-view="dashboard"><span class="dot"></span>ダッシュボード</button>
+      <button class="navbtn" data-view="reservations"><span class="dot"></span>予約管理</button>
+      <button class="navbtn" data-view="reconcile"><span class="dot"></span>入金消込</button>
+      <button class="navbtn" data-view="customers"><span class="dot"></span>顧客名簿</button>
+      <button class="navbtn" data-view="coupons"><span class="dot"></span>クーポン</button>
+      <button class="navbtn" data-view="mail"><span class="dot"></span>AIメール文章作成</button>
+      <button class="navbtn" data-view="settings"><span class="dot"></span>料金設定</button>
+      <button class="navbtn" data-view="studios"><span class="dot"></span>スタジオ管理</button>
+    </div>
+    <div class="foot">
+      <div id="currentUserLabel" style="font-weight:700; color:var(--text); margin-bottom:6px; word-break:break-all;"></div>
+      複数スタジオ対応<br>予約・売上管理ツール<br>
+      <button class="btn sm ghost" id="btnLockNow" style="margin-top:8px; width:100%;">ログアウト</button>
+    </div>
+  </nav>
+
+  <main id="main">
+
+    <!-- ================= DASHBOARD ================= -->
+    <section class="view active" id="view-dashboard">
+      <div class="pagehead">
+        <div>
+          <h1>ダッシュボード</h1>
+          <div class="sub" id="dashScopeLabel">月次の売上と予約状況をひと目で確認</div>
+        </div>
+        <div class="field" style="margin:0;min-width:160px;">
+          <label>対象月</label>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button class="cal-navbtn" id="dashMonthPrev" type="button">‹</button>
+            <input type="month" id="dashMonth" style="flex:1;">
+            <button class="cal-navbtn" id="dashMonthNext" type="button">›</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpis">
+        <div class="kpi accent"><div class="label">売上合計</div><div class="value" id="kpiTotal">-</div></div>
+        <div class="kpi good"><div class="label">入金済</div><div class="value" id="kpiPaid">-</div></div>
+        <div class="kpi warn"><div class="label">未収</div><div class="value" id="kpiUnpaid">-</div></div>
+        <div class="kpi"><div class="label">予約件数</div><div class="value" id="kpiCount">-</div></div>
+        <div class="kpi"><div class="label">平均単価</div><div class="value" id="kpiAvg">-</div></div>
+        <div class="kpi good"><div class="label">粗利額</div><div class="value" id="kpiGrossProfit">-</div></div>
+        <div class="kpi good"><div class="label">粗利率</div><div class="value" id="kpiGrossMargin">-</div></div>
+      </div>
+      <div class="muted" id="grossProfitNote" style="font-size:.74rem; margin:-10px 0 18px;"></div>
+
+      <div class="card">
+        <div class="card-head"><h2>日別売上推移</h2></div>
+        <div class="card-body">
+          <svg class="chart" id="dailyChart" viewBox="0 0 900 180" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <div class="card" id="studioBreakdownCard" hidden>
+        <div class="card-head"><h2>スタジオ別売上</h2></div>
+        <div class="card-body">
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>スタジオ</th><th class="num">件数</th><th class="num">売上</th></tr></thead>
+              <tbody id="studioSummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>プラン別売上</h2></div>
+        <div class="card-body">
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>プラン</th><th class="num">件数</th><th class="num">売上</th></tr></thead>
+              <tbody id="planSummaryBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>作品一覧</h2></div>
+        <div class="card-body" style="padding:0;">
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>日付</th><th id="thWorkStudio" hidden>スタジオ</th><th>お客様</th><th>撮影作品名</th></tr></thead>
+              <tbody id="workListBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="workListEmpty" hidden>この月は「撮影作品名」が入力された予約がありません。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= RESERVATIONS ================= -->
+    <section class="view" id="view-reservations">
+      <div class="pagehead">
+        <div>
+          <h1>予約管理</h1>
+          <div class="sub" id="resScopeLabel">予約の登録・入金ステータス管理</div>
+        </div>
+        <button class="btn primary" id="btnNewReservation">+ 新規予約</button>
+      </div>
+
+      <div class="card">
+        <div class="card-head" style="justify-content:center; position:relative;">
+          <div class="cal-head">
+            <button class="cal-navbtn" id="calPrev">‹</button>
+            <div class="cal-month-label" id="calMonthLabel">-</div>
+            <button class="cal-navbtn" id="calNext">›</button>
+          </div>
+          <input type="month" id="resFilterMonth" style="position:absolute; right:20px; width:150px;">
+        </div>
+        <div class="card-body">
+          <div class="cal-grid" id="calDow">
+            <div class="cal-dow sun">日</div><div class="cal-dow">月</div><div class="cal-dow">火</div>
+            <div class="cal-dow">水</div><div class="cal-dow">木</div><div class="cal-dow">金</div>
+            <div class="cal-dow sat">土</div>
+          </div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>予約一覧</h2></div>
+        <div class="card-body" style="padding:0;">
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>日付</th><th>時間</th><th id="thStudio" hidden>スタジオ</th><th>プラン</th><th>お客様</th>
+                  <th class="num">金額</th><th>支払方法</th><th>状態</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="reservationsBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="reservationsEmpty" hidden>この月の予約はまだありません。「+ 新規予約」から追加してください。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= RECONCILE ================= -->
+    <section class="view" id="view-reconcile">
+      <div class="pagehead">
+        <div>
+          <h1>入金消込</h1>
+          <div class="sub" id="reconcileScopeLabel">銀行明細と未収予約をつき合わせて入金済みにする</div>
+        </div>
+      </div>
+
+      <div class="banner">
+        銀行口座には直接つなげません(セキュリティ上、口座情報・認証情報の入力自体ができない仕組みです)。ネットバンキングの入出金明細画面からテキストをコピーしてここに貼り付けると、金額をもとに未収の予約と自動で候補を突き合わせます。判定はあくまで簡易的な目安のため、必ず内容を確認してから「入金済みにする」を押してください。
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>銀行明細を貼り付け</h2></div>
+        <div class="card-body">
+          <textarea id="bankStatementInput" rows="8" placeholder="ネットバンキングの入出金明細をそのままコピー&amp;ペーストしてください。&#10;例)&#10;2024/06/12　振込　ヤマダタロウ　35,000円&#10;2024/06/13　振込　スズキハナコ　22,000円"></textarea>
+          <div style="margin-top:10px;">
+            <button class="btn primary" id="btnRunReconcile">照合する</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="reconcileResultsCard" hidden>
+        <div class="card-head"><h2>照合結果</h2></div>
+        <div class="card-body" style="padding:0;">
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>明細の日付</th><th>金額</th><th>振込人名義など</th><th>候補の予約</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="reconcileBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="reconcileEmpty" hidden>金額が一致する未収の予約が見つかりませんでした。</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>未消込の未収予約</h2></div>
+        <div class="card-body" style="padding:0;">
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>日付</th><th id="thReconcileStudio" hidden>スタジオ</th><th>お客様</th><th class="num">金額</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="reconcileUnpaidBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="reconcileUnpaidEmpty" hidden>未収の予約はありません。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CUSTOMERS ================= -->
+    <section class="view" id="view-customers">
+      <div class="pagehead">
+        <div>
+          <h1>顧客名簿</h1>
+          <div class="sub" id="custScopeLabel">利用いただいたお客様の一覧</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <div class="tablewrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>お客様名</th><th>連絡先</th><th>SNS</th><th id="thCustStudio" hidden>利用スタジオ</th>
+                  <th class="num">利用回数</th><th class="num">累計売上</th><th class="num">平均単価</th><th>最終利用日</th>
+                </tr>
+              </thead>
+              <tbody id="customersBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="customersEmpty" hidden>該当する顧客はまだいません。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= COUPONS ================= -->
+    <section class="view" id="view-coupons">
+      <div class="pagehead">
+        <div>
+          <h1>クーポン管理</h1>
+          <div class="sub">割引コードの発行・有効期限の管理</div>
+        </div>
+        <button class="btn primary" id="btnNewCoupon">+ 新規クーポン</button>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding:0;">
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>コード</th><th>適用スタジオ</th><th>割引</th><th>有効期限</th><th>状態</th><th>メモ</th><th></th></tr></thead>
+              <tbody id="couponsBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="couponsEmpty" hidden>クーポンはまだ登録されていません。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MAIL ================= -->
+    <section class="view" id="view-mail">
+      <div class="pagehead">
+        <div>
+          <h1>AIメール文章作成</h1>
+          <div class="sub">受信メールを貼り付けてAIで確定メール文章を作成</div>
+        </div>
+      </div>
+
+      <div class="banner">
+        メールの自動受信・自動送信はできません。下の欄に届いたメールの本文を貼り付けると、AIまたはテンプレートで確定メール文章を作成できます。作成した文章はコピーしてXserverメールなどから送信してください。
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>受信メール本文</h2></div>
+        <div class="card-body">
+          <div class="field">
+            <label>対象スタジオ</label>
+            <select id="mailStudioSelect"></select>
+          </div>
+          <div class="field">
+            <textarea id="mailInboxBody" rows="10" placeholder="お客様から届いたメールの本文をそのまま貼り付けてください"></textarea>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label>テンプレート(任意・選択すると即反映)</label>
+              <select id="mailTemplateSelect"><option value="">(選択せずAIで作成)</option></select>
+            </div>
+            <div class="field" style="display:flex; align-items:flex-end;">
+              <button class="btn primary" id="btnAiDraftMail" style="width:100%;" type="button">✨ 確定メール文章をAIで作成</button>
+            </div>
+          </div>
+          <div class="muted" id="aiMailNote" style="font-size:.76rem;"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>作成された確定メール文章</h2></div>
+        <div class="card-body">
+          <div class="field">
+            <textarea id="mailOutputBody" rows="10" placeholder="ここに確定メール文章が表示されます(内容は自由に編集できます)"></textarea>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn primary" id="btnCopyMailOutput">コピー</button>
+            <button class="btn ghost" id="btnReflectReservation">予約に反映</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>返信テンプレート</h2>
+          <button class="btn sm ghost" id="btnNewTemplate">+ テンプレート追加</button>
+        </div>
+        <div class="card-body">
+          <div id="templateList"></div>
+          <div class="empty" id="templateListEmpty" hidden>テンプレートはまだ登録されていません。</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section class="view" id="view-settings">
+      <div class="pagehead">
+        <div>
+          <h1>料金設定</h1>
+          <div class="sub" id="settingsScopeLabel">プラン・オプション・延長料金を編集</div>
+        </div>
+        <button class="btn primary" id="btnSaveSettings">変更を保存</button>
+      </div>
+
+      <div class="card" id="settingsNoStudio" hidden>
+        <div class="card-body empty">左上の「表示中のスタジオ」で編集したいスタジオを選んでください。</div>
+      </div>
+
+      <div id="settingsForms">
+        <div class="card">
+          <div class="card-head">
+            <h2>プラン</h2>
+            <button class="btn sm ghost" id="btnAddPlan">+ プラン追加</button>
+          </div>
+          <div class="card-body">
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>プラン名</th><th style="width:140px;">料金(円)</th><th style="width:40px;"></th></tr></thead>
+                <tbody id="planSettingsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>オプション</h2>
+            <button class="btn sm ghost" id="btnAddOption">+ オプション追加</button>
+          </div>
+          <div class="card-body">
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>オプション名</th><th style="width:140px;">料金(円)</th><th style="width:40px;"></th></tr></thead>
+                <tbody id="optionSettingsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>延長料金</h2></div>
+          <div class="card-body">
+            <div class="field" style="max-width:240px;">
+              <label>延長料金(円/時間)</label>
+              <input type="number" id="extensionFeeInput" min="0" step="10">
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>固定費(家賃・光熱費)</h2></div>
+          <div class="card-body">
+            <div class="muted" style="font-size:.78rem; margin-bottom:12px;">
+              ダッシュボードの粗利額・粗利率の算出に使用します。月あたりの金額を入力してください。
+            </div>
+            <div class="row2">
+              <div class="field"><label>家賃(円/月)</label><input type="number" id="monthlyRentInput" min="0" step="1000"></div>
+              <div class="field"><label>光熱費(円/月)</label><input type="number" id="monthlyUtilitiesInput" min="0" step="1000"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STUDIOS ================= -->
+    <section class="view" id="view-studios">
+      <div class="pagehead">
+        <div>
+          <h1>スタジオ管理</h1>
+          <div class="sub">管理するスタジオの追加・編集</div>
+        </div>
+        <button class="btn primary" id="btnNewStudio">+ スタジオ追加</button>
+      </div>
+
+      <div class="card">
+        <div class="card-body" id="studiosList"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ================= RESERVATION MODAL ================= -->
+<div id="modalOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:40; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:640px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="modalTitle">新規予約</h2>
+      <span class="icon-x" id="modalClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>スタジオ</label>
+        <select id="fStudio"></select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>予約日</label>
+          <input type="date" id="fDate">
+        </div>
+        <div class="field">
+          <label>曜日区分</label>
+          <div style="padding-top:8px;"><span class="pill" id="dayTypeBadge">-</span>
+            <label style="display:inline-flex;align-items:center;gap:5px;font-weight:500;margin-left:10px;">
+              <input type="checkbox" id="fHoliday" style="width:auto;">祝日扱い
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>開始時刻</label><input type="time" id="fStart"></div>
+        <div class="field"><label>終了時刻</label><input type="time" id="fEnd"></div>
+      </div>
+      <div class="field">
+        <label>プラン</label>
+        <select id="fPlan"></select>
+      </div>
+      <div class="field">
+        <label>オプション</label>
+        <div class="checklist" id="fOptions"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>延長時間(h)</label><input type="number" id="fExtHours" min="0" step="0.5" value="0"></div>
+        <div class="field"><label>クーポンコード</label><input type="text" id="fCoupon" placeholder="任意"></div>
+      </div>
+      <div class="totalbox" id="totalBox"></div>
+
+      <div class="row2" style="margin-top:14px;">
+        <div class="field"><label>お客様名</label><input type="text" id="fName"></div>
+        <div class="field"><label>連絡先</label><input type="text" id="fContact"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>SNSアカウント</label><input type="text" id="fSns" placeholder="@example"></div>
+        <div class="field"><label>撮影作品名</label><input type="text" id="fWork" placeholder="任意"></div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>支払方法</label>
+          <select id="fPayMethod"><option>銀行振込</option><option>現金</option><option>その他</option></select>
+        </div>
+        <div class="field">
+          <label>支払ステータス</label>
+          <select id="fPayStatus"><option>未収</option><option>入金済</option></select>
+        </div>
+      </div>
+      <div class="field"><label>備考</label><textarea id="fNotes" rows="2"></textarea></div>
+
+      <div style="display:flex; justify-content:space-between; margin-top:16px;">
+        <button class="btn danger" id="btnDeleteReservation" style="display:none;">削除</button>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button class="btn ghost" id="btnCancelModal">キャンセル</button>
+          <button class="btn primary" id="btnSaveReservation">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= DAY DETAIL MODAL ================= -->
+<div id="dayModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:40; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:480px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="dayModalTitle">-</h2>
+      <span class="icon-x" id="dayModalClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="daylist" id="dayList"></div>
+      <div class="empty" id="dayListEmpty" hidden>この日の予約はまだありません。</div>
+      <button class="btn primary" id="btnAddFromDay" style="width:100%; margin-top:14px;">+ この日に新規予約</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= TEMPLATE MODAL ================= -->
+<div id="templateModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:40; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:520px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="templateModalTitle">新規テンプレート</h2>
+      <span class="icon-x" id="templateModalClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="row2">
+        <div class="field"><label>テンプレート名</label><input type="text" id="tName" placeholder="例: 予約確定のご案内"></div>
+        <div class="field">
+          <label>適用スタジオ</label>
+          <select id="tStudio"></select>
+        </div>
+      </div>
+      <div class="field"><label>件名</label><input type="text" id="tSubject"></div>
+      <div class="field"><label>本文</label><textarea id="tBody" rows="8"></textarea></div>
+      <div class="placeholder-hints" id="placeholderHints"></div>
+      <div style="display:flex; justify-content:space-between; margin-top:12px;">
+        <button class="btn danger" id="btnDeleteTemplate" style="display:none;">削除</button>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button class="btn ghost" id="btnCancelTemplateModal">キャンセル</button>
+          <button class="btn primary" id="btnSaveTemplate">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= COUPON MODAL ================= -->
+<div id="couponModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:40; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:420px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="couponModalTitle">新規クーポン</h2>
+      <span class="icon-x" id="couponModalClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="field"><label>クーポンコード</label><input type="text" id="cCode" placeholder="例: WELCOME20"></div>
+      <div class="field">
+        <label>適用スタジオ</label>
+        <select id="cStudio"></select>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>割引タイプ</label>
+          <select id="cType"><option value="percent">割合(%)</option><option value="fixed">定額(円)</option></select>
+        </div>
+        <div class="field"><label>割引値</label><input type="number" id="cValue" min="0"></div>
+      </div>
+      <div class="field"><label>有効期限(任意)</label><input type="date" id="cUntil"></div>
+      <div class="field"><label>メモ</label><input type="text" id="cNote"></div>
+      <div class="field"><label style="display:flex;align-items:center;gap:6px;font-weight:500;"><input type="checkbox" id="cActive" style="width:auto;" checked>有効にする</label></div>
+      <div style="display:flex; justify-content:space-between; margin-top:10px;">
+        <button class="btn danger" id="btnDeleteCoupon" style="display:none;">削除</button>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button class="btn ghost" id="btnCancelCouponModal">キャンセル</button>
+          <button class="btn primary" id="btnSaveCoupon">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= STUDIO MODAL ================= -->
+<div id="studioModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:40; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:420px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="studioModalTitle">新規スタジオ</h2>
+      <span class="icon-x" id="studioModalClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="field"><label>スタジオ名</label><input type="text" id="sName" placeholder="例: VirtuaReal Studio"></div>
+      <div class="row2">
+        <div class="field"><label>カラー</label><input type="color" id="sColor" value="#1f3a5f"></div>
+        <div class="field"><label>所在地(任意)</label><input type="text" id="sAddress"></div>
+      </div>
+      <div class="field"><label>メモ</label><input type="text" id="sNote"></div>
+      <div style="display:flex; justify-content:space-between; margin-top:10px;">
+        <button class="btn danger" id="btnDeleteStudio" style="display:none;">削除</button>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button class="btn ghost" id="btnCancelStudioModal">キャンセル</button>
+          <button class="btn primary" id="btnSaveStudio">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= COPY CONFIRM MODAL ================= -->
+<div id="copyConfirmOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.6); z-index:60; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:560px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="copyConfirmTitle">内容の確認</h2>
+      <span class="icon-x" id="copyConfirmClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="muted" style="font-size:.8rem; margin-bottom:8px;">コピーする前に、内容に相違がないかご確認ください。</div>
+      <textarea id="copyConfirmText" rows="12" readonly style="font-size:.82rem;"></textarea>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button class="btn ghost" id="btnCopyConfirmCancel">キャンセル</button>
+        <button class="btn primary" id="btnCopyConfirmOk">内容を確認しました。コピーする</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  const $ = (id)=>document.getElementById(id);
+  const yen = (n)=> "¥" + Math.round(n||0).toLocaleString("ja-JP");
+  const todayStr = ()=> new Date().toISOString().slice(0,10);
+  const monthStr = (d)=> (d||"").slice(0,7);
+  const ALL = "__ALL__";
+
+  function toast(msg){
+    const t=$("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(toast._h); toast._h=setTimeout(()=>t.classList.remove("show"),2200);
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  function isWeekendOrHoliday(dateStr, holidayFlag){
+    if(holidayFlag) return true;
+    if(!dateStr) return false;
+    const day = new Date(dateStr+"T00:00:00").getDay();
+    return day===0 || day===6;
+  }
+
+  function defaultStudioSeed(){
+    return {
+      name: "VirtuaReal Studio",
+      color: "#1f3a5f",
+      address: "",
+      note: "",
+      plans:[
+        {id:"weekday_solo", name:"平日個撮プラン(1〜2名様限定・最低5時間〜)", price:19900},
+        {id:"weekday_normal", name:"平日通常プラン(最低5時間〜)", price:22400},
+        {id:"weekend_a", name:"土日祝プラン A枠(9:00-15:00)", price:29880},
+        {id:"weekend_b", name:"土日祝プラン B枠(15:00-20:00)", price:24900},
+      ],
+      options:[
+        {id:"led", name:"LEDオールインクルーシブセット", price:1500},
+        {id:"monitor", name:"パソコンモニター利用", price:500},
+        {id:"commercial", name:"個人商用利用(スチール撮影)", price:2000},
+      ],
+      extensionFeePerHour: 3980,
+      // monthlyRent / monthlyUtilities intentionally left unset until configured in 料金設定
+      createdAt: new Date().toISOString(),
+    };
+  }
+  function blankStudioSeed(name){
+    return { name: name||"新しいスタジオ", color:"#3d6b96", address:"", note:"",
+      plans:[], options:[], extensionFeePerHour:0, createdAt:new Date().toISOString() };
+      // monthlyRent / monthlyUtilities intentionally left unset until configured in 料金設定
+  }
+
+  // ---------- state ----------
+  let studios = [];        // {id, name, color, address, note, plans, options, extensionFeePerHour}
+  let reservations = [];
+  let coupons = [];
+  let templates = [];      // {id, studioId(or null=共通), name, subject, body}
+  let currentUserEmail = null;
+  const UNLOCK_KEY = "studiomanager.loggedInEmail";
+  const LOCAL_ACCOUNT_KEY = "studiomanager.localaccount";
+  function safeGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+  function safeSet(key,val){ try{ localStorage.setItem(key,val); }catch(e){} }
+  function safeRemove(key){ try{ localStorage.removeItem(key); }catch(e){} }
+  let db = null;
+  let dbAvailable = false;
+  let canWrite = true;
+  let sampleFn = null;
+  let currentStudioId = null; // ALL or a studio id
+  let migrationChecked = false;
+
+  function getStudio(id){ return studios.find(s=>s.id===id); }
+  function studioName(id){ const s=getStudio(id); return s? s.name : "(不明なスタジオ)"; }
+  function studioColor(id){ const s=getStudio(id); return s? s.color : "#999"; }
+
+  function loadCurrentStudioPref(){
+    try{ return localStorage.getItem("studiomanager.currentStudio"); }catch(e){ return null; }
+  }
+  function saveCurrentStudioPref(v){
+    try{ localStorage.setItem("studiomanager.currentStudio", v); }catch(e){}
+  }
+
+  // =====================================================================
+  // NAV
+  // =====================================================================
+  document.querySelectorAll(".navbtn").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".navbtn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+      btn.classList.add("active");
+      $("view-"+btn.dataset.view).classList.add("active");
+      renderCurrentView();
+    });
+  });
+  function activeViewName(){
+    const b = document.querySelector(".navbtn.active");
+    return b? b.dataset.view : "dashboard";
+  }
+  function renderCurrentView(){
+    const v = activeViewName();
+    if(v==="dashboard") renderDashboard();
+    if(v==="reservations"){ renderCalendar(); renderReservationsTable(); }
+    if(v==="coupons") renderCouponsTable();
+    if(v==="customers") renderCustomersList();
+    if(v==="mail"){ renderMailPage(); renderTemplateList(); }
+    if(v==="reconcile") renderReconcile();
+    if(v==="settings") renderSettingsForm();
+    if(v==="studios") renderStudiosList();
+  }
+
+  // ---------- studio switcher ----------
+  function renderStudioSwitcher(){
+    const sel = $("studioSwitcher");
+    const prevVal = currentStudioId;
+    let opts = `<option value="${ALL}">全スタジオ</option>`;
+    opts += studios.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+    sel.innerHTML = opts;
+    if(prevVal && (prevVal===ALL || getStudio(prevVal))) sel.value = prevVal;
+    else if(studios.length){ sel.value = studios[0].id; }
+    else sel.value = ALL;
+    currentStudioId = sel.value;
+  }
+  $("studioSwitcher").addEventListener("change", ()=>{
+    currentStudioId = $("studioSwitcher").value;
+    saveCurrentStudioPref(currentStudioId);
+    renderCurrentView();
+  });
+
+  // ---------- month pickers ----------
+  const curMonth = new Date().toISOString().slice(0,7);
+  $("dashMonth").value = curMonth;
+  $("resFilterMonth").value = curMonth;
+  $("dashMonth").addEventListener("change", renderDashboard);
+  $("resFilterMonth").addEventListener("change", renderCurrentView);
+  $("dashMonthPrev").addEventListener("click", ()=>{
+    $("dashMonth").value = shiftMonth($("dashMonth").value||curMonth, -1);
+    renderDashboard();
+  });
+  $("dashMonthNext").addEventListener("click", ()=>{
+    $("dashMonth").value = shiftMonth($("dashMonth").value||curMonth, 1);
+    renderDashboard();
+  });
+
+  // =====================================================================
+  // DASHBOARD
+  // =====================================================================
+  function renderDashboard(){
+    const m = $("dashMonth").value || curMonth;
+    const scoped = currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
+    const list = scoped.filter(r=>monthStr(r.date)===m);
+
+    $("dashScopeLabel").textContent = currentStudioId===ALL
+      ? "全スタジオ合算の売上と予約状況"
+      : studioName(currentStudioId) + " の売上と予約状況";
+
+    const total = list.reduce((s,r)=>s+(r.total||0),0);
+    const paid = list.filter(r=>r.paymentStatus==="入金済").reduce((s,r)=>s+(r.total||0),0);
+    const unpaid = list.filter(r=>r.paymentStatus==="未収").reduce((s,r)=>s+(r.total||0),0);
+    $("kpiTotal").textContent = yen(total);
+    $("kpiPaid").textContent = yen(paid);
+    $("kpiUnpaid").textContent = yen(unpaid);
+    $("kpiCount").textContent = list.length + "件";
+    $("kpiAvg").textContent = list.length ? yen(total/list.length) : "-";
+
+    // gross profit = revenue - fixed costs (rent + utilities) for the studios in scope
+    const costStudios = currentStudioId===ALL ? studios : studios.filter(s=>s.id===currentStudioId);
+    const isUnset = (v)=> v===undefined || v===null || v==="";
+    const hasMissingCost = costStudios.length===0 || costStudios.some(st=> isUnset(st.monthlyRent) || isUnset(st.monthlyUtilities));
+    const grossKpis = [$("kpiGrossProfit").parentElement, $("kpiGrossMargin").parentElement];
+    if(hasMissingCost){
+      $("kpiGrossProfit").textContent = "N/A";
+      $("kpiGrossMargin").textContent = "N/A";
+      grossKpis.forEach(el=>{ el.classList.remove("warn"); el.classList.add("good"); });
+      $("grossProfitNote").textContent = currentStudioId===ALL
+        ? "家賃・光熱費が未設定のスタジオがあるため、粗利額・粗利率はN/Aです。「料金設定」の固定費から各スタジオの金額を入力してください。"
+        : "家賃・光熱費が未設定のため、粗利額・粗利率はN/Aです。「料金設定」の固定費から金額を入力してください。";
+    } else {
+      const fixedCosts = costStudios.reduce((s,st)=>s+(Number(st.monthlyRent)||0)+(Number(st.monthlyUtilities)||0),0);
+      const grossProfit = total - fixedCosts;
+      $("kpiGrossProfit").textContent = yen(grossProfit);
+      $("kpiGrossProfit").parentElement.classList.toggle("warn", grossProfit<0);
+      $("kpiGrossProfit").parentElement.classList.toggle("good", grossProfit>=0);
+      $("kpiGrossMargin").textContent = total>0 ? (grossProfit/total*100).toFixed(1)+"%" : "-";
+      $("kpiGrossMargin").parentElement.classList.toggle("warn", total>0 && grossProfit<0);
+      $("kpiGrossMargin").parentElement.classList.toggle("good", !(total>0 && grossProfit<0));
+      $("grossProfitNote").textContent = `固定費(家賃・光熱費 合計 ${yen(fixedCosts)}/月)を売上から差し引いた金額です。設定は「料金設定」から編集できます。`;
+    }
+
+    // daily chart
+    const [y,mo] = m.split("-").map(Number);
+    const daysInMonth = new Date(y, mo, 0).getDate();
+    const daily = new Array(daysInMonth+1).fill(0);
+    list.forEach(r=>{
+      const d = parseInt((r.date||"").split("-")[2],10);
+      if(d>=1 && d<=daysInMonth) daily[d]+=(r.total||0);
+    });
+    const max = Math.max(1, ...daily);
+    const W=900,H=180,padL=34,padB=20,padT=10;
+    const plotW = W-padL-10, plotH = H-padT-padB;
+    const bw = plotW/daysInMonth*0.7;
+    let s = `<line class="axis" x1="${padL}" y1="${H-padB}" x2="${W-6}" y2="${H-padB}"/>`;
+    s += `<text x="4" y="${padT+6}">${yen(max)}</text>`;
+    s += `<text x="4" y="${H-padB}">¥0</text>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const x = padL + (d-1)*(plotW/daysInMonth) + (plotW/daysInMonth-bw)/2;
+      const h = (daily[d]/max)*plotH;
+      const y = H-padB-h;
+      s += `<rect class="bar" x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${d}日 ${yen(daily[d])}</title></rect>`;
+      if(d===1 || d%5===0 || d===daysInMonth) s += `<text x="${(x+bw/2).toFixed(1)}" y="${H-4}" text-anchor="middle">${d}</text>`;
+    }
+    $("dailyChart").innerHTML = s;
+
+    // studio breakdown (only when viewing ALL)
+    if(currentStudioId===ALL){
+      $("studioBreakdownCard").hidden = false;
+      const byStudio = {};
+      list.forEach(r=>{
+        const key = r.studioId || "unknown";
+        byStudio[key] = byStudio[key] || {count:0, total:0};
+        byStudio[key].count++; byStudio[key].total += (r.total||0);
+      });
+      const rows = Object.entries(byStudio).sort((a,b)=>b[1].total-a[1].total);
+      $("studioSummaryBody").innerHTML = rows.length ? rows.map(([sid,v])=>`
+        <tr>
+          <td><span class="pill studio"><span class="studio-dot" style="background:${studioColor(sid)}"></span>${escapeHtml(studioName(sid))}</span></td>
+          <td class="num">${v.count}</td><td class="num">${yen(v.total)}</td>
+        </tr>`).join("") : `<tr><td colspan="3" class="empty">データがありません</td></tr>`;
+    } else {
+      $("studioBreakdownCard").hidden = true;
+    }
+
+    // plan summary
+    const byPlan = {};
+    list.forEach(r=>{
+      const key = r.planName || "(不明)";
+      byPlan[key] = byPlan[key] || {count:0, total:0};
+      byPlan[key].count++; byPlan[key].total += (r.total||0);
+    });
+    const prows = Object.entries(byPlan).sort((a,b)=>b[1].total-a[1].total);
+    $("planSummaryBody").innerHTML = prows.length ? prows.map(([name,v])=>`
+      <tr><td>${escapeHtml(name)}</td><td class="num">${v.count}</td><td class="num">${yen(v.total)}</td></tr>
+    `).join("") : `<tr><td colspan="3" class="empty">データがありません</td></tr>`;
+
+    // work title list (撮影作品名)
+    $("thWorkStudio").hidden = currentStudioId!==ALL;
+    const works = list.filter(r=>(r.workTitle||"").trim())
+      .sort((a,b)=> (a.date+ (a.startTime||"")).localeCompare(b.date+(b.startTime||"")));
+    $("workListEmpty").hidden = works.length>0;
+    $("workListBody").innerHTML = works.map(r=>{
+      const studioCell = currentStudioId===ALL
+        ? `<td><span class="pill studio"><span class="studio-dot" style="background:${studioColor(r.studioId)}"></span>${escapeHtml(studioName(r.studioId))}</span></td>` : "";
+      return `<tr>
+        <td>${escapeHtml(r.date||"")}</td>
+        ${studioCell}
+        <td>${escapeHtml(r.customerName||"")}</td>
+        <td>${escapeHtml(r.workTitle||"")}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // =====================================================================
+  // RESERVATIONS
+  // =====================================================================
+  function renderReservationsTable(){
+    $("thStudio").hidden = currentStudioId!==ALL;
+    $("resScopeLabel").textContent = currentStudioId===ALL
+      ? "全スタジオの予約一覧" : studioName(currentStudioId) + " の予約一覧";
+
+    const m = $("resFilterMonth").value || curMonth;
+    const scoped = currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
+    const list = scoped.filter(r=>monthStr(r.date)===m)
+      .sort((a,b)=> (a.date+a.startTime).localeCompare(b.date+b.startTime));
+    const body = $("reservationsBody");
+    $("reservationsEmpty").hidden = list.length>0;
+    body.innerHTML = list.map(r=>{
+      const statusPill = r.paymentStatus==="入金済"
+        ? `<span class="pill good">入金済</span>` : `<span class="pill warn">未収</span>`;
+      const studioCell = currentStudioId===ALL
+        ? `<td><span class="pill studio"><span class="studio-dot" style="background:${studioColor(r.studioId)}"></span>${escapeHtml(studioName(r.studioId))}</span></td>` : "";
+      return `<tr data-id="${r.id}">
+        <td>${escapeHtml(r.date||"")}</td>
+        <td>${escapeHtml(r.startTime||"")}〜${escapeHtml(r.endTime||"")}</td>
+        ${studioCell}
+        <td>${escapeHtml(r.planName||"")}</td>
+        <td>${escapeHtml(r.customerName||"")}</td>
+        <td class="num">${yen(r.total)}</td>
+        <td>${escapeHtml(r.paymentMethod||"")}</td>
+        <td>${statusPill}</td>
+        <td><button class="btn sm ghost" data-edit="${r.id}">編集</button></td>
+      </tr>`;
+    }).join("");
+    body.querySelectorAll("[data-edit]").forEach(b=>{
+      b.addEventListener("click", ()=>openReservationModal(b.dataset.edit));
+    });
+  }
+
+  // =====================================================================
+  // RECONCILE (入金消込)
+  // =====================================================================
+  function parseBankText(text){
+    // Best-effort line parser for pasted netbanking statement text.
+    // Extracts a date, a yen amount, and whatever text remains as a payer-name guess.
+    const lines = (text||"").split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    const out = [];
+    lines.forEach(line=>{
+      // amount: last "1,234円" / "1,234" style number on the line, usually the largest/rightmost
+      const amountMatches = [...line.matchAll(/([0-9][0-9,]{2,})\s*円?/g)];
+      if(!amountMatches.length) return;
+      const amountStr = amountMatches[amountMatches.length-1][1];
+      const amount = parseInt(amountStr.replace(/,/g,""), 10);
+      if(!amount || amount<=0) return;
+
+      // date: 2024/06/12, 2024-06-12, 06/12, 6月12日 etc.
+      let date = "";
+      let dm = line.match(/(\d{4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})/);
+      if(dm){
+        date = `${dm[1]}-${String(dm[2]).padStart(2,"0")}-${String(dm[3]).padStart(2,"0")}`;
+      } else {
+        dm = line.match(/(?<!\d)(\d{1,2})[\/\-](\d{1,2})(?!\d)/);
+        if(dm){
+          const y = new Date().getFullYear();
+          date = `${y}-${String(dm[1]).padStart(2,"0")}-${String(dm[2]).padStart(2,"0")}`;
+        }
+      }
+
+      // payer name guess: strip date & amount tokens & common noise words, keep the rest
+      let rest = line
+        .replace(/(\d{4})[\/\-年](\d{1,2})[\/\-月](\d{1,2})日?/, "")
+        .replace(/(?<!\d)(\d{1,2})[\/\-](\d{1,2})(?!\d)/, "")
+        .replace(/[0-9][0-9,]{2,}\s*円?/g, "")
+        .replace(/振込|振り込み|フリコミ|入金|お引出し|お預り金額|カ\)|\(株\)|株式会社/g, "")
+        .replace(/[\-\/：:・|｜]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+      out.push({ rawLine: line, date, amount, payerName: rest });
+    });
+    return out;
+  }
+
+  function matchTransactionsToReservations(transactions, scoped){
+    const unpaid = scoped.filter(r=>r.paymentStatus==="未収");
+    return transactions.map(tx=>{
+      let candidates = unpaid.filter(r=>(r.total||0)===tx.amount);
+      if(tx.date){
+        candidates = candidates.slice().sort((a,b)=>{
+          const da = Math.abs(new Date(a.date) - new Date(tx.date));
+          const db = Math.abs(new Date(b.date) - new Date(tx.date));
+          return da - db;
+        });
+      }
+      return { tx, candidates };
+    });
+  }
+
+  let reconcileMatches = [];
+  function renderReconcileResults(matches){
+    reconcileMatches = matches;
+    const card = $("reconcileResultsCard");
+    const body = $("reconcileBody");
+    const anyMatches = matches.length>0;
+    card.hidden = !anyMatches;
+    if(!anyMatches) return;
+    const withCandidates = matches.filter(m=>m.candidates.length>0);
+    $("reconcileEmpty").hidden = withCandidates.length>0;
+    body.innerHTML = matches.map((m,i)=>{
+      const tx = m.tx;
+      const studioNote = currentStudioId===ALL;
+      const options = m.candidates.map(r=>
+        `<option value="${r.id}">${escapeHtml(r.date||"")} ${escapeHtml(r.customerName||"氏名未入力")}${studioNote?"（"+escapeHtml(studioName(r.studioId))+"）":""} / ${yen(r.total)}</option>`
+      ).join("");
+      const selectHtml = m.candidates.length
+        ? `<select data-match="${i}">${options}</select>`
+        : `<span class="pill warn">候補なし</span>`;
+      const btnHtml = m.candidates.length
+        ? `<button class="btn sm primary" data-confirm="${i}">入金済みにする</button>`
+        : "";
+      return `<tr>
+        <td>${escapeHtml(tx.date||"(不明)")}</td>
+        <td class="num">${yen(tx.amount)}</td>
+        <td>${escapeHtml(tx.payerName||tx.rawLine)}</td>
+        <td>${selectHtml}</td>
+        <td>${btnHtml}</td>
+      </tr>`;
+    }).join("");
+    body.querySelectorAll("[data-confirm]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const idx = Number(btn.dataset.confirm);
+        const sel = body.querySelector(`select[data-match="${idx}"]`);
+        const resId = sel && sel.value;
+        if(!resId) return;
+        btn.disabled = true;
+        await saveReservation(resId, { paymentStatus:"入金済" });
+        renderReconcile();
+      });
+    });
+  }
+
+  function renderReconcileUnpaidList(){
+    $("thReconcileStudio").hidden = currentStudioId!==ALL;
+    $("reconcileScopeLabel").textContent = currentStudioId===ALL
+      ? "全スタジオの未収予約と銀行明細をつき合わせて入金済みにする"
+      : studioName(currentStudioId) + " の未収予約と銀行明細をつき合わせて入金済みにする";
+
+    const scoped = currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
+    const list = scoped.filter(r=>r.paymentStatus==="未収")
+      .sort((a,b)=> (a.date||"").localeCompare(b.date||""));
+    const body = $("reconcileUnpaidBody");
+    $("reconcileUnpaidEmpty").hidden = list.length>0;
+    body.innerHTML = list.map(r=>{
+      const studioCell = currentStudioId===ALL
+        ? `<td><span class="pill studio"><span class="studio-dot" style="background:${studioColor(r.studioId)}"></span>${escapeHtml(studioName(r.studioId))}</span></td>` : "";
+      return `<tr data-id="${r.id}">
+        <td>${escapeHtml(r.date||"")}</td>
+        ${studioCell}
+        <td>${escapeHtml(r.customerName||"")}</td>
+        <td class="num">${yen(r.total)}</td>
+        <td><button class="btn sm ghost" data-markpaid="${r.id}">入金済みにする</button></td>
+      </tr>`;
+    }).join("");
+    body.querySelectorAll("[data-markpaid]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        btn.disabled = true;
+        await saveReservation(btn.dataset.markpaid, { paymentStatus:"入金済" });
+        renderReconcile();
+      });
+    });
+  }
+
+  function renderReconcile(){
+    $("reconcileResultsCard").hidden = true;
+    renderReconcileUnpaidList();
+  }
+
+  $("btnRunReconcile").addEventListener("click", ()=>{
+    const text = $("bankStatementInput").value;
+    const scoped = currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
+    const transactions = parseBankText(text);
+    if(!transactions.length){
+      toast("明細から金額を読み取れませんでした。1行に日付と金額が含まれているかご確認ください。");
+      $("reconcileResultsCard").hidden = true;
+      return;
+    }
+    const matches = matchTransactionsToReservations(transactions, scoped);
+    renderReconcileResults(matches);
+  });
+
+  // ---- customer registry ----
+  function renderCustomersList(){
+    $("thCustStudio").hidden = currentStudioId!==ALL;
+    $("custScopeLabel").textContent = currentStudioId===ALL
+      ? "全スタジオの利用顧客一覧" : studioName(currentStudioId) + " の利用顧客一覧";
+
+    const scoped = currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
+    const groups = new Map();
+    scoped.forEach(r=>{
+      const name = (r.customerName||"").trim() || "(名前未入力)";
+      const contact = (r.contact||"").trim();
+      const key = name + "___" + contact;
+      if(!groups.has(key)){
+        groups.set(key, {
+          name, contact, sns: r.sns||"", studioIds: new Set(),
+          count:0, total:0, lastDate:""
+        });
+      }
+      const g = groups.get(key);
+      g.studioIds.add(r.studioId);
+      g.count += 1;
+      g.total += Number(r.total)||0;
+      if(!g.sns && r.sns) g.sns = r.sns;
+      if(!g.lastDate || (r.date||"") > g.lastDate) g.lastDate = r.date||"";
+    });
+
+    const list = Array.from(groups.values()).sort((a,b)=> (b.lastDate||"").localeCompare(a.lastDate||""));
+    const body = $("customersBody");
+    $("customersEmpty").hidden = list.length>0;
+    body.innerHTML = list.map(g=>{
+      const avg = g.count>0 ? Math.round(g.total/g.count) : 0;
+      const studioCell = currentStudioId===ALL
+        ? `<td>${Array.from(g.studioIds).map(id=>`<span class="pill studio"><span class="studio-dot" style="background:${studioColor(id)}"></span>${escapeHtml(studioName(id))}</span>`).join(" ")}</td>`
+        : "";
+      return `<tr>
+        <td>${escapeHtml(g.name)}</td>
+        <td>${escapeHtml(g.contact||"-")}</td>
+        <td>${escapeHtml(g.sns||"-")}</td>
+        ${studioCell}
+        <td class="num">${g.count}</td>
+        <td class="num">${yen(g.total)}</td>
+        <td class="num">${yen(avg)}</td>
+        <td>${escapeHtml(g.lastDate||"-")}</td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ---- calendar ----
+  const PAY_COLOR_UNPAID_DASH = true;
+  function shiftMonth(monthStr_, delta){
+    const [y,m] = monthStr_.split("-").map(Number);
+    const d = new Date(y, m-1+delta, 1);
+    return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+  }
+  $("calPrev").addEventListener("click", ()=>{
+    $("resFilterMonth").value = shiftMonth($("resFilterMonth").value||curMonth, -1);
+    renderCurrentView();
+  });
+  $("calNext").addEventListener("click", ()=>{
+    $("resFilterMonth").value = shiftMonth($("resFilterMonth").value||curMonth, 1);
+    renderCurrentView();
+  });
+
+  function renderCalendar(){
+    const m = $("resFilterMonth").value || curMonth;
+    const [y,mo] = m.split("-").map(Number);
+    $("calMonthLabel").textContent = y+"年"+mo+"月";
+
+    const scoped = currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
+    const byDate = {};
+    scoped.forEach(r=>{
+      if(monthStr(r.date)!==m) return;
+      (byDate[r.date] = byDate[r.date]||[]).push(r);
+    });
+    Object.values(byDate).forEach(list=>list.sort((a,b)=>(a.startTime||"").localeCompare(b.startTime||"")));
+
+    const firstDow = new Date(y, mo-1, 1).getDay();
+    const daysInMonth = new Date(y, mo, 0).getDate();
+    const todayIso = todayStr();
+
+    let html = "";
+    for(let i=0;i<firstDow;i++) html += `<div class="cal-cell empty"></div>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const dateIso = y+"-"+String(mo).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+      const dow = new Date(y,mo-1,d).getDay();
+      const dowClass = dow===0?"sun":(dow===6?"sat":"");
+      const isToday = dateIso===todayIso;
+      const dayEvents = byDate[dateIso]||[];
+      const maxShow = 3;
+      const shown = dayEvents.slice(0,maxShow);
+      const restCount = dayEvents.length-shown.length;
+      const eventsHtml = shown.map(r=>{
+        const color = currentStudioId===ALL ? studioColor(r.studioId) : "var(--accent)";
+        const unpaidCls = r.paymentStatus==="未収" ? "unpaid" : "";
+        const label = (r.startTime||"") + " " + (r.customerName||r.planName||"");
+        return `<div class="cal-event ${unpaidCls}" style="background:${color}" data-open-res="${r.id}" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
+      }).join("");
+      const moreHtml = restCount>0 ? `<div class="cal-more" data-day-more="${dateIso}">+${restCount}件</div>` : "";
+      html += `<div class="cal-cell ${dowClass} ${isToday?'today':''}" data-day="${dateIso}">
+        <div class="cal-daynum"><span>${d}</span><span class="cal-add">+</span></div>
+        <div class="cal-events">${eventsHtml}${moreHtml}</div>
+      </div>`;
+    }
+    $("calGrid").innerHTML = html;
+
+    $("calGrid").querySelectorAll("[data-day]").forEach(cell=>{
+      cell.addEventListener("click", (e)=>{
+        if(e.target.closest("[data-open-res]") || e.target.closest("[data-day-more]")) return;
+        openDayModal(cell.dataset.day);
+      });
+    });
+    $("calGrid").querySelectorAll("[data-open-res]").forEach(el=>{
+      el.addEventListener("click", (e)=>{ e.stopPropagation(); openReservationModal(el.dataset.openRes); });
+    });
+    $("calGrid").querySelectorAll("[data-day-more]").forEach(el=>{
+      el.addEventListener("click", (e)=>{ e.stopPropagation(); openDayModal(el.dataset.dayMore); });
+    });
+  }
+
+  // ---- day detail modal ----
+  let dayModalDate = null;
+  function openDayModal(dateIso){
+    dayModalDate = dateIso;
+    const scoped = currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
+    const list = scoped.filter(r=>r.date===dateIso).sort((a,b)=>(a.startTime||"").localeCompare(b.startTime||""));
+    const d = new Date(dateIso+"T00:00:00");
+    const wd = ["日","月","火","水","木","金","土"][d.getDay()];
+    $("dayModalTitle").textContent = `${d.getMonth()+1}月${d.getDate()}日(${wd})の予約`;
+    $("dayListEmpty").hidden = list.length>0;
+    $("dayList").innerHTML = list.map(r=>{
+      const statusPill = r.paymentStatus==="入金済" ? `<span class="pill good">入金済</span>` : `<span class="pill warn">未収</span>`;
+      const studioTag = currentStudioId===ALL ? `<span class="pill studio"><span class="studio-dot" style="background:${studioColor(r.studioId)}"></span>${escapeHtml(studioName(r.studioId))}</span>` : "";
+      return `<div class="dayitem" data-open-res="${r.id}">
+        <div class="time">${escapeHtml(r.startTime||"")}〜${escapeHtml(r.endTime||"")}</div>
+        <div class="desc">
+          <div>${escapeHtml(r.customerName||"(未入力)")} ${studioTag}</div>
+          <div class="plan">${escapeHtml(r.planName||"")} ・ ${yen(r.total)}</div>
+        </div>
+        ${statusPill}
+      </div>`;
+    }).join("");
+    $("dayList").querySelectorAll("[data-open-res]").forEach(el=>{
+      el.addEventListener("click", ()=>{ closeDayModal(); openReservationModal(el.dataset.openRes); });
+    });
+    $("dayModalOverlay").style.display = "flex";
+  }
+  function closeDayModal(){ $("dayModalOverlay").style.display="none"; }
+  $("dayModalClose").addEventListener("click", closeDayModal);
+  $("dayModalOverlay").addEventListener("click",(e)=>{ if(e.target.id==="dayModalOverlay") closeDayModal(); });
+  $("btnAddFromDay").addEventListener("click", ()=>{
+    const d = dayModalDate; closeDayModal(); openReservationModal(null, d);
+  });
+
+  // ---- reservation modal ----
+  let editingReservationId = null;
+
+  function populateStudioSelect(selectEl, selectedId){
+    selectEl.innerHTML = studios.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+    if(selectedId && getStudio(selectedId)) selectEl.value = selectedId;
+  }
+  function activeModalStudio(){
+    return getStudio($("fStudio").value) || studios[0];
+  }
+  function populatePlanSelect(selectedId){
+    const st = activeModalStudio();
+    const plans = st? st.plans : [];
+    const sel = $("fPlan");
+    sel.innerHTML = plans.length
+      ? plans.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (${yen(p.price)})</option>`).join("")
+      : `<option value="">(このスタジオにはプランが未設定です)</option>`;
+    if(selectedId) sel.value = selectedId;
+  }
+  function populateOptionChecks(selectedIds){
+    selectedIds = selectedIds || [];
+    const st = activeModalStudio();
+    const options = st? st.options : [];
+    $("fOptions").innerHTML = options.length ? options.map(o=>`
+      <label class="checkrow">
+        <input type="checkbox" value="${o.id}" ${selectedIds.includes(o.id)?"checked":""}>
+        ${escapeHtml(o.name)}(${yen(o.price)})
+      </label>
+    `).join("") : `<div class="muted" style="font-size:.8rem;">オプションは未設定です</div>`;
+  }
+
+  function computeTotals(){
+    const dateStr = $("fDate").value;
+    const holiday = $("fHoliday").checked;
+    const weekend = isWeekendOrHoliday(dateStr, holiday);
+    $("dayTypeBadge").textContent = weekend ? "土日祝" : "平日";
+    $("dayTypeBadge").className = "pill " + (weekend ? "daytype-weekend" : "daytype-weekday");
+
+    const st = activeModalStudio();
+    const plans = st? st.plans : [];
+    const plan = plans.find(p=>p.id===$("fPlan").value);
+    const planPrice = plan ? plan.price : 0;
+    const optIds = Array.from($("fOptions").querySelectorAll("input:checked")).map(i=>i.value);
+    const options = st? st.options : [];
+    const optionsTotal = optIds.reduce((s,id)=>{
+      const o = options.find(x=>x.id===id);
+      return s + (o? o.price:0);
+    },0);
+    const extHours = parseFloat($("fExtHours").value)||0;
+    const extFee = extHours * (st? (st.extensionFeePerHour||0) : 0);
+    const subtotal = planPrice + optionsTotal + extFee;
+
+    const code = ($("fCoupon").value||"").trim().toUpperCase();
+    let discount = 0, couponNote="";
+    if(code){
+      const c = coupons.find(x=>(x.code||"").toUpperCase()===code && (!x.studioId || x.studioId===$("fStudio").value));
+      if(c && c.active!==false){
+        const notExpired = !c.validUntil || c.validUntil>=dateStr;
+        if(notExpired){
+          discount = c.type==="percent" ? subtotal*(c.value/100) : c.value;
+          discount = Math.min(discount, subtotal);
+          couponNote = c.type==="percent" ? `${c.value}%OFF` : `${yen(c.value)}OFF`;
+        } else { couponNote = "(期限切れ)"; }
+      } else if(code){ couponNote = "(無効なコード)"; }
+    }
+    const total = Math.max(0, subtotal-discount);
+
+    $("totalBox").innerHTML = `
+      <div class="line"><span>プラン料金</span><span>${yen(planPrice)}</span></div>
+      <div class="line"><span>オプション</span><span>${yen(optionsTotal)}</span></div>
+      <div class="line"><span>延長料金</span><span>${yen(extFee)}</span></div>
+      ${discount>0?`<div class="line discount"><span>クーポン割引 ${couponNote}</span><span>-${yen(discount)}</span></div>`:
+        (couponNote?`<div class="line"><span style="color:var(--text-dim)">${couponNote}</span><span></span></div>`:"")}
+      <div class="line total"><span>合計</span><span>${yen(total)}</span></div>
+    `;
+    return {studioId: $("fStudio").value, studioName: st? st.name:"",
+      planId:plan?plan.id:"", planName:plan?plan.name:"", planPrice, optionIds:optIds, optionsTotal,
+      extensionHours:extHours, extensionFee:extFee, couponCode:code, couponDiscount:discount, subtotal, total};
+  }
+
+  $("fStudio").addEventListener("change", ()=>{
+    populatePlanSelect(); populateOptionChecks([]); computeTotals();
+  });
+  ["fDate","fHoliday","fPlan","fExtHours","fCoupon"].forEach(id=>{
+    $(id).addEventListener("input", computeTotals);
+    $(id).addEventListener("change", computeTotals);
+  });
+  $("fOptions").addEventListener("change", computeTotals);
+
+  function openReservationModal(id, presetDate, prefill){
+    if(!studios.length){ toast("先に「スタジオ管理」からスタジオを登録してください"); return; }
+    prefill = prefill || {};
+    editingReservationId = id || null;
+    const r = id ? reservations.find(x=>x.id===id) : null;
+    $("modalTitle").textContent = r ? "予約を編集" : "新規予約";
+    $("btnDeleteReservation").style.display = r ? "" : "none";
+
+    const defaultStudioId = r? r.studioId : (prefill.studioId && getStudio(prefill.studioId) ? prefill.studioId : (currentStudioId!==ALL ? currentStudioId : studios[0].id));
+    populateStudioSelect($("fStudio"), defaultStudioId);
+
+    $("fDate").value = r? r.date : (presetDate || prefill.date || todayStr());
+    $("fHoliday").checked = r? !!r.isHoliday : false;
+    $("fStart").value = r? r.startTime : (prefill.startTime || "10:00");
+    $("fEnd").value = r? r.endTime : (prefill.endTime || "15:00");
+    populatePlanSelect(r? r.planId : prefill.planId);
+    populateOptionChecks(r? r.optionIds : (prefill.optionIds||[]));
+    $("fExtHours").value = r? r.extensionHours : 0;
+    $("fCoupon").value = r? (r.couponCode||"") : (prefill.couponCode||"");
+    $("fName").value = r? (r.customerName||"") : (prefill.customerName||"");
+    $("fContact").value = r? (r.contact||"") : (prefill.contact||"");
+    $("fSns").value = r? (r.sns||"") : (prefill.sns||"");
+    $("fWork").value = r? (r.workTitle||"") : "";
+    $("fPayMethod").value = r? (r.paymentMethod||"銀行振込") : "銀行振込";
+    $("fPayStatus").value = r? (r.paymentStatus||"未収") : "未収";
+    $("fNotes").value = r? (r.notes||"") : (prefill.parsedFromMail ? "問い合わせメールの自動解析から作成(内容を確認してください)" : "");
+
+    computeTotals();
+    $("modalOverlay").style.display = "flex";
+    if(prefill.parsedFromMail){
+      toast("メール本文を解析しました。内容を確認して保存してください");
+    }
+  }
+  function closeReservationModal(){ $("modalOverlay").style.display="none"; }
+
+  $("btnNewReservation").addEventListener("click", ()=>openReservationModal(null));
+  $("modalClose").addEventListener("click", closeReservationModal);
+  $("btnCancelModal").addEventListener("click", closeReservationModal);
+  $("modalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="modalOverlay") closeReservationModal(); });
+
+  $("btnSaveReservation").addEventListener("click", async ()=>{
+    if(!$("fDate").value || !$("fName").value.trim()){ toast("予約日とお客様名は必須です"); return; }
+    if(!$("fStudio").value){ toast("スタジオを選択してください"); return; }
+    const calc = computeTotals();
+    const data = {
+      studioId: calc.studioId, studioName: calc.studioName,
+      date: $("fDate").value, isHoliday: $("fHoliday").checked,
+      startTime: $("fStart").value, endTime: $("fEnd").value,
+      planId: calc.planId, planName: calc.planName, planPrice: calc.planPrice,
+      optionIds: calc.optionIds, optionsTotal: calc.optionsTotal,
+      extensionHours: calc.extensionHours, extensionFee: calc.extensionFee,
+      couponCode: calc.couponCode, couponDiscount: calc.couponDiscount,
+      subtotal: calc.subtotal, total: calc.total,
+      customerName: $("fName").value.trim(), contact: $("fContact").value.trim(),
+      sns: $("fSns").value.trim(), workTitle: $("fWork").value.trim(),
+      paymentMethod: $("fPayMethod").value, paymentStatus: $("fPayStatus").value,
+      notes: $("fNotes").value.trim(), updatedAt: new Date().toISOString(),
+    };
+    await saveReservation(editingReservationId, data);
+    closeReservationModal();
+  });
+  $("btnDeleteReservation").addEventListener("click", async ()=>{
+    if(!editingReservationId) return;
+    if(!confirm("この予約を削除しますか？")) return;
+    await deleteReservation(editingReservationId);
+    closeReservationModal();
+  });
+
+  // =====================================================================
+  // COUPONS
+  // =====================================================================
+  function renderCouponsTable(){
+    $("couponsEmpty").hidden = coupons.length>0;
+    $("couponsBody").innerHTML = coupons.map(c=>{
+      const discountLabel = c.type==="percent" ? `${c.value}%` : yen(c.value);
+      const status = c.active!==false ? `<span class="pill good">有効</span>` : `<span class="pill muted">無効</span>`;
+      const scope = c.studioId ? `<span class="pill studio"><span class="studio-dot" style="background:${studioColor(c.studioId)}"></span>${escapeHtml(studioName(c.studioId))}</span>` : `<span class="pill muted">全スタジオ共通</span>`;
+      return `<tr data-id="${c.id}">
+        <td><strong>${escapeHtml(c.code||"")}</strong></td>
+        <td>${scope}</td>
+        <td>${discountLabel}</td>
+        <td>${c.validUntil? escapeHtml(c.validUntil) : "-"}</td>
+        <td>${status}</td>
+        <td class="muted">${escapeHtml(c.note||"")}</td>
+        <td><button class="btn sm ghost" data-edit="${c.id}">編集</button></td>
+      </tr>`;
+    }).join("");
+    $("couponsBody").querySelectorAll("[data-edit]").forEach(b=>{
+      b.addEventListener("click", ()=>openCouponModal(b.dataset.edit));
+    });
+  }
+
+  let editingCouponId = null;
+  function populateCouponStudioSelect(selectedId){
+    const sel = $("cStudio");
+    sel.innerHTML = `<option value="">全スタジオ共通</option>` +
+      studios.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+    sel.value = selectedId || "";
+  }
+  function openCouponModal(id){
+    editingCouponId = id || null;
+    const c = id ? coupons.find(x=>x.id===id) : null;
+    $("couponModalTitle").textContent = c? "クーポンを編集" : "新規クーポン";
+    $("btnDeleteCoupon").style.display = c? "" : "none";
+    $("cCode").value = c? c.code : "";
+    populateCouponStudioSelect(c? c.studioId : (currentStudioId!==ALL? currentStudioId : ""));
+    $("cType").value = c? c.type : "percent";
+    $("cValue").value = c? c.value : 10;
+    $("cUntil").value = c? (c.validUntil||"") : "";
+    $("cNote").value = c? (c.note||"") : "";
+    $("cActive").checked = c? c.active!==false : true;
+    $("couponModalOverlay").style.display = "flex";
+  }
+  function closeCouponModal(){ $("couponModalOverlay").style.display="none"; }
+  $("btnNewCoupon").addEventListener("click", ()=>openCouponModal(null));
+  $("couponModalClose").addEventListener("click", closeCouponModal);
+  $("btnCancelCouponModal").addEventListener("click", closeCouponModal);
+  $("couponModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="couponModalOverlay") closeCouponModal(); });
+
+  $("btnSaveCoupon").addEventListener("click", async ()=>{
+    const code = $("cCode").value.trim().toUpperCase();
+    if(!code){ toast("クーポンコードを入力してください"); return; }
+    const data = {
+      code, studioId: $("cStudio").value || null,
+      type: $("cType").value, value: parseFloat($("cValue").value)||0,
+      validUntil: $("cUntil").value || null, note: $("cNote").value.trim(),
+      active: $("cActive").checked, updatedAt: new Date().toISOString(),
+    };
+    await saveCoupon(editingCouponId, data);
+    closeCouponModal();
+  });
+  $("btnDeleteCoupon").addEventListener("click", async ()=>{
+    if(!editingCouponId) return;
+    if(!confirm("このクーポンを削除しますか？")) return;
+    await deleteCoupon(editingCouponId);
+    closeCouponModal();
+  });
+
+  // =====================================================================
+  // MAIL
+  // =====================================================================
+  const PLACEHOLDERS = [
+    {key:"customerName", label:"お客様名"},
+    {key:"studioName", label:"スタジオ名"},
+    {key:"date", label:"予約日"},
+    {key:"startTime", label:"開始時刻"},
+    {key:"endTime", label:"終了時刻"},
+    {key:"planName", label:"プラン名"},
+    {key:"total", label:"合計金額"},
+    {key:"contact", label:"連絡先"},
+  ];
+  function fillTemplate(body, vals){
+    return (body||"").replace(/\{\{(\w+)\}\}/g, (m,k)=> (vals[k]!==undefined && vals[k]!==null && vals[k]!=="") ? vals[k] : m);
+  }
+  function populateMailStudioSelect(selectEl, selectedId){
+    selectEl.innerHTML = studios.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+    if(selectedId && getStudio(selectedId)) selectEl.value = selectedId;
+    else if(currentStudioId!==ALL) selectEl.value = currentStudioId;
+  }
+
+  function populateTemplateSelectForMail(studioId, selectedId){
+    const list = templates.filter(t=> !t.studioId || t.studioId===studioId);
+    $("mailTemplateSelect").innerHTML = `<option value="">(選択せずAIで作成)</option>` +
+      list.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join("");
+    if(selectedId) $("mailTemplateSelect").value = selectedId;
+  }
+
+  // ---- inquiry mail text parser (best-effort; always review before saving) ----
+  function parseInquiryText(raw, studio){
+    const text = String(raw||"");
+    const out = {};
+
+    // date: prefer explicit "YYYY年M月D日", fall back to "M月D日" (assume this year, or next year if already past)
+    let m = text.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+    if(m){
+      out.date = `${m[1]}-${String(+m[2]).padStart(2,"0")}-${String(+m[3]).padStart(2,"0")}`;
+    } else {
+      m = text.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+      if(m){
+        const now = new Date();
+        let y = now.getFullYear();
+        const cand = new Date(y, +m[1]-1, +m[2]);
+        const todayMid = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if(cand < todayMid) y += 1;
+        out.date = `${y}-${String(+m[1]).padStart(2,"0")}-${String(+m[2]).padStart(2,"0")}`;
+      }
+    }
+
+    // time range, e.g. "10:00〜15:00" / "10時〜15時" / "21:00～翌2:00"
+    m = text.match(/(\d{1,2})[:：時](\d{2})?\s*[〜～\-–~]+\s*(?:翌)?(\d{1,2})[:：時](\d{2})?/);
+    if(m){
+      out.startTime = `${String(+m[1]).padStart(2,"0")}:${m[2]||"00"}`;
+      out.endTime = `${String(+m[3]).padStart(2,"0")}:${m[4]||"00"}`;
+    }
+
+    // plan: match against this studio's configured plan names (loosely, ignoring parenthetical detail)
+    if(studio && studio.plans && studio.plans.length){
+      for(const p of studio.plans){
+        const key = (p.name||"").replace(/[（(].*?[）)]/g,"").trim();
+        if(key && text.includes(key)){ out.planId = p.id; break; }
+      }
+      if(!out.planId){
+        const find = (re)=> (studio.plans.find(p=>re.test(p.name))||{}).id;
+        if(/個撮/.test(text)) out.planId = find(/個撮/);
+        else if(/A枠/.test(text)) out.planId = find(/A枠/);
+        else if(/B枠/.test(text)) out.planId = find(/B枠/);
+        else if(/土日祝/.test(text)) out.planId = find(/土日祝/);
+        else if(/平日/.test(text)) out.planId = find(/平日/);
+      }
+    }
+
+    // options: match against this studio's configured option names
+    if(studio && studio.options && studio.options.length){
+      out.optionIds = studio.options.filter(o=>{
+        const key = (o.name||"").split(/[：:]/)[0].replace(/[（(].*?[）)]/g,"").trim();
+        return key && text.includes(key);
+      }).map(o=>o.id);
+    }
+
+    // coupon code
+    m = text.match(/クーポンコード[】\]:：]*\s*([^\s\n]+)/);
+    if(m && !/^(なし|無し|特になし)$/.test(m[1])) out.couponCode = m[1];
+
+    // customer name: "○○ 様" is used throughout the confirmation/inquiry mails
+    m = text.match(/([一-龠ぁ-んァ-ヶーA-Za-z]{1,16})\s*様/);
+    if(m) out.customerName = m[1].trim();
+
+    // SNS account
+    m = text.match(/@[\w.\-]{2,30}/);
+    if(m) out.sns = m[0];
+
+    // contact: email preferred, else a phone-looking number
+    m = text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
+    if(m) out.contact = m[0];
+    else { m = text.match(/0\d{1,4}-?\d{1,4}-?\d{3,4}/); if(m) out.contact = m[0]; }
+
+    return out;
+  }
+
+  // ---- placeholder values built directly from the pasted text (no saved mail record) ----
+  function buildPlaceholderValsFromText(body, studioId){
+    const st = getStudio(studioId);
+    const parsed = parseInquiryText(body||"", st);
+    const plan = (st && parsed.planId) ? (st.plans||[]).find(p=>p.id===parsed.planId) : null;
+    return {
+      customerName: parsed.customerName || "",
+      studioName: st? st.name : "",
+      contact: parsed.contact || "",
+      date: parsed.date || "",
+      startTime: parsed.startTime || "",
+      endTime: parsed.endTime || "",
+      planName: plan? plan.name : "",
+      total: plan? yen(plan.price) : "",
+    };
+  }
+
+  function renderMailPage(){
+    const prevStudio = $("mailStudioSelect").value;
+    populateMailStudioSelect($("mailStudioSelect"), prevStudio || undefined);
+    populateTemplateSelectForMail($("mailStudioSelect").value, $("mailTemplateSelect").value);
+    updateAiMailButtonVisibility();
+  }
+  $("mailStudioSelect").addEventListener("change", ()=>{
+    populateTemplateSelectForMail($("mailStudioSelect").value, "");
+  });
+
+  $("mailTemplateSelect").addEventListener("change", ()=>{
+    const tid = $("mailTemplateSelect").value;
+    if(!tid) return;
+    const t = templates.find(x=>x.id===tid);
+    if(!t) return;
+    const vals = buildPlaceholderValsFromText($("mailInboxBody").value, $("mailStudioSelect").value);
+    $("mailOutputBody").value = (t.subject? `【件名】${t.subject}\n\n`:"") + fillTemplate(t.body, vals);
+  });
+
+  // ---- AI mail creation (uses the viewer's own Claude account via the sample capability) ----
+  function updateAiMailButtonVisibility(){
+    const has = !!sampleFn;
+    $("btnAiDraftMail").hidden = !has;
+    if(!has) $("aiMailNote").textContent = "この環境ではAI文章作成を利用できません(テンプレートをご利用ください)。";
+  }
+  let aiMailAbort = null;
+  $("btnAiDraftMail").addEventListener("click", async ()=>{
+    if(!sampleFn){ toast("この画面ではAIメール作成を利用できません"); return; }
+    const studioId = $("mailStudioSelect").value;
+    if(!studioId){ toast("スタジオを選択してください"); return; }
+    const st = getStudio(studioId);
+    const inquiryBody = ($("mailInboxBody").value || "").trim();
+    if(!inquiryBody){ toast("先に受信メールの本文を貼り付けてください"); return; }
+    const parsed = parseInquiryText(inquiryBody, st);
+    const plan = (st && parsed.planId) ? (st.plans||[]).find(p=>p.id===parsed.planId) : null;
+
+    const tid = $("mailTemplateSelect").value;
+    const t = tid ? templates.find(x=>x.id===tid) : null;
+
+    let prompt = "あなたはレンタル撮影スタジオのスタッフです。以下のお客様からの問い合わせメールに対する、丁寧で自然な日本語の返信メール本文を作成してください。\n";
+    prompt += "件名は不要で、本文のみを出力してください。前置きや説明は書かず、メール本文だけを返答してください。\n\n";
+    prompt += `■スタジオ名: ${st? st.name : ""}\n`;
+    if(parsed.customerName) prompt += `■お客様名: ${parsed.customerName}\n`;
+    if(parsed.date || plan){
+      prompt += `■問い合わせ内容から読み取れた予約情報(未確定・参考情報):\n  日時: ${parsed.date||"(不明)"} ${parsed.startTime||""}〜${parsed.endTime||""}\n  プラン: ${plan? plan.name : "(不明)"}\n`;
+    }
+    if(t){
+      prompt += `\n■参考にする文面のトーン・構成(このスタジオの定型文):\n${t.body}\n`;
+    }
+    prompt += `\n■お客様からの問い合わせ本文:\n${inquiryBody.slice(0,4000)}\n`;
+    prompt += "\n上記を踏まえ、問い合わせ内容に沿った返信メール本文を作成してください。日時やプランが読み取れた場合はその詳細を盛り込み、末尾に軽い挨拶を添えてください。";
+
+    aiMailAbort = new AbortController();
+    const btn = $("btnAiDraftMail");
+    btn.disabled = true;
+    $("aiMailNote").textContent = "AIが下書きを作成しています…";
+    $("mailOutputBody").value = "";
+    try{
+      const { truncated } = await sampleFn(prompt, {
+        signal: aiMailAbort.signal,
+        modelTier: "default",
+        cache: false,
+        onText: ({text})=>{ $("mailOutputBody").value = text; },
+      });
+      $("aiMailNote").textContent = truncated ? "文字数の上限で途中までの生成になりました。内容を確認・調整してください。" : "AIが下書きを作成しました。内容を確認のうえ、ご利用ください。";
+    }catch(e){
+      if(e && e.text) $("mailOutputBody").value = e.text;
+      let msg = "AIメール作成に失敗しました。もう一度お試しください。";
+      if(e && e.code==="not_granted") msg = "AIメール作成の利用が許可されていません。";
+      else if(e && e.code==="cancelled") msg = "";
+      else if(e && e.code==="rate_limited") msg = "しばらく時間を置いてから再度お試しください。";
+      $("aiMailNote").textContent = msg;
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  // ---- copy confirmation dialog (always shown before actually writing to clipboard) ----
+  let pendingCopyText = "", pendingCopyLabel = "";
+  function openCopyConfirm(text, label){
+    if(!text){ toast("コピーする内容がありません"); return; }
+    pendingCopyText = text; pendingCopyLabel = label || "コピー";
+    $("copyConfirmTitle").textContent = "内容の確認 (" + pendingCopyLabel + ")";
+    $("copyConfirmText").value = text;
+    $("copyConfirmOverlay").style.display = "flex";
+  }
+  function closeCopyConfirm(){ $("copyConfirmOverlay").style.display = "none"; }
+  $("copyConfirmClose").addEventListener("click", closeCopyConfirm);
+  $("btnCopyConfirmCancel").addEventListener("click", closeCopyConfirm);
+  $("copyConfirmOverlay").addEventListener("click", (e)=>{ if(e.target.id==="copyConfirmOverlay") closeCopyConfirm(); });
+  $("btnCopyConfirmOk").addEventListener("click", async ()=>{
+    try{ await navigator.clipboard.writeText(pendingCopyText); toast(pendingCopyLabel+"をコピーしました"); }
+    catch(e){ toast("コピーに失敗しました。テキストを選択してコピーしてください"); }
+    closeCopyConfirm();
+  });
+
+  $("btnCopyMailOutput").addEventListener("click", ()=>{
+    openCopyConfirm($("mailOutputBody").value, "確定メール文章");
+  });
+
+  $("btnReflectReservation").addEventListener("click", ()=>{
+    const studioId = $("mailStudioSelect").value;
+    if(!studioId){ toast("スタジオを選択してください"); return; }
+    const body = ($("mailInboxBody").value || "").trim();
+    if(!body){ toast("先に受信メールの本文を貼り付けてください"); return; }
+    const st = getStudio(studioId);
+    const parsed = parseInquiryText(body, st);
+    openReservationModal(null, null, {
+      studioId,
+      date: parsed.date, startTime: parsed.startTime, endTime: parsed.endTime,
+      planId: parsed.planId, optionIds: parsed.optionIds, couponCode: parsed.couponCode,
+      customerName: parsed.customerName, contact: parsed.contact,
+      sns: parsed.sns, parsedFromMail: true,
+    });
+  });
+
+  // ---- templates ----
+  function renderTemplateList(){
+    const list = currentStudioId===ALL ? templates.slice() : templates.filter(t=>!t.studioId || t.studioId===currentStudioId);
+    $("templateListEmpty").hidden = list.length>0;
+    $("templateList").innerHTML = list.map(t=>{
+      const scope = t.studioId ? `<span class="pill studio"><span class="studio-dot" style="background:${studioColor(t.studioId)}"></span>${escapeHtml(studioName(t.studioId))}</span>` : `<span class="pill muted">全スタジオ共通</span>`;
+      return `<div class="tplcard" data-edit-tpl="${t.id}">
+        <div style="flex:1; min-width:0;">
+          <div class="name">${escapeHtml(t.name)} ${scope}</div>
+          <div class="snippet">${escapeHtml((t.body||"").slice(0,70))}</div>
+        </div>
+        <button class="btn sm ghost">編集</button>
+      </div>`;
+    }).join("");
+    $("templateList").querySelectorAll("[data-edit-tpl]").forEach(el=>{
+      el.addEventListener("click", ()=>openTemplateModal(el.dataset.editTpl));
+    });
+  }
+
+  let editingTemplateId = null;
+  function openTemplateModal(id){
+    editingTemplateId = id || null;
+    const t = id? templates.find(x=>x.id===id) : null;
+    $("templateModalTitle").textContent = t? "テンプレートを編集" : "新規テンプレート";
+    $("btnDeleteTemplate").style.display = t? "" : "none";
+    $("tName").value = t? t.name : "";
+    const sel = $("tStudio");
+    sel.innerHTML = `<option value="">全スタジオ共通</option>` + studios.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+    sel.value = t? (t.studioId||"") : (currentStudioId!==ALL? currentStudioId : "");
+    $("tSubject").value = t? (t.subject||"") : "";
+    $("tBody").value = t? (t.body||"") : "";
+    $("placeholderHints").innerHTML = PLACEHOLDERS.map(p=>`<span class="placeholder-chip" data-ph="{{${p.key}}}">{{${p.key}}} ${p.label}</span>`).join("");
+    $("placeholderHints").querySelectorAll(".placeholder-chip").forEach(chip=>{
+      chip.addEventListener("click", ()=>{
+        const ta = $("tBody"); const ph = chip.dataset.ph;
+        const start = ta.selectionStart||ta.value.length, end = ta.selectionEnd||ta.value.length;
+        ta.value = ta.value.slice(0,start) + ph + ta.value.slice(end);
+        ta.focus();
+      });
+    });
+    $("templateModalOverlay").style.display = "flex";
+  }
+  function closeTemplateModal(){ $("templateModalOverlay").style.display="none"; }
+  $("btnNewTemplate").addEventListener("click", ()=>openTemplateModal(null));
+  $("templateModalClose").addEventListener("click", closeTemplateModal);
+  $("btnCancelTemplateModal").addEventListener("click", closeTemplateModal);
+  $("templateModalOverlay").addEventListener("click",(e)=>{ if(e.target.id==="templateModalOverlay") closeTemplateModal(); });
+
+  $("btnSaveTemplate").addEventListener("click", async ()=>{
+    const name = $("tName").value.trim();
+    if(!name){ toast("テンプレート名を入力してください"); return; }
+    const data = {
+      name, studioId: $("tStudio").value || null,
+      subject: $("tSubject").value.trim(), body: $("tBody").value,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveTemplate(editingTemplateId, data);
+    closeTemplateModal();
+  });
+  $("btnDeleteTemplate").addEventListener("click", async ()=>{
+    if(!editingTemplateId) return;
+    if(!confirm("このテンプレートを削除しますか？")) return;
+    await deleteTemplate(editingTemplateId);
+    closeTemplateModal();
+  });
+
+  // =====================================================================
+  // SETTINGS (per studio)
+  // =====================================================================
+  function renderSettingsForm(){
+    const st = getStudio(currentStudioId);
+    $("settingsScopeLabel").textContent = st ? st.name + " の料金設定" : "プラン・オプション・延長料金を編集";
+    if(!st){
+      $("settingsNoStudio").hidden = false;
+      $("settingsForms").style.display = "none";
+      return;
+    }
+    $("settingsNoStudio").hidden = true;
+    $("settingsForms").style.display = "";
+
+    $("planSettingsBody").innerHTML = (st.plans||[]).map((p,i)=>`
+      <tr data-i="${i}">
+        <td><input type="text" class="plan-name" value="${escapeHtml(p.name)}"></td>
+        <td><input type="number" class="plan-price" value="${p.price}" min="0" step="10"></td>
+        <td><span class="icon-x" data-del-plan="${i}">&times;</span></td>
+      </tr>`).join("");
+    $("optionSettingsBody").innerHTML = (st.options||[]).map((o,i)=>`
+      <tr data-i="${i}">
+        <td><input type="text" class="opt-name" value="${escapeHtml(o.name)}"></td>
+        <td><input type="number" class="opt-price" value="${o.price}" min="0" step="10"></td>
+        <td><span class="icon-x" data-del-opt="${i}">&times;</span></td>
+      </tr>`).join("");
+    $("extensionFeeInput").value = st.extensionFeePerHour||0;
+    $("monthlyRentInput").value = (st.monthlyRent===undefined || st.monthlyRent===null) ? "" : st.monthlyRent;
+    $("monthlyUtilitiesInput").value = (st.monthlyUtilities===undefined || st.monthlyUtilities===null) ? "" : st.monthlyUtilities;
+
+    $("planSettingsBody").querySelectorAll("[data-del-plan]").forEach(b=>{
+      b.addEventListener("click", ()=>{ st.plans.splice(+b.dataset.delPlan,1); renderSettingsForm(); });
+    });
+    $("optionSettingsBody").querySelectorAll("[data-del-opt]").forEach(b=>{
+      b.addEventListener("click", ()=>{ st.options.splice(+b.dataset.delOpt,1); renderSettingsForm(); });
+    });
+  }
+  $("btnAddPlan").addEventListener("click", ()=>{
+    const st = getStudio(currentStudioId); if(!st) return;
+    st.plans = st.plans||[]; st.plans.push({id:"plan_"+Date.now(), name:"新規プラン", price:0});
+    renderSettingsForm();
+  });
+  $("btnAddOption").addEventListener("click", ()=>{
+    const st = getStudio(currentStudioId); if(!st) return;
+    st.options = st.options||[]; st.options.push({id:"opt_"+Date.now(), name:"新規オプション", price:0});
+    renderSettingsForm();
+  });
+  $("btnSaveSettings").addEventListener("click", async ()=>{
+    const st = getStudio(currentStudioId); if(!st){ toast("スタジオを選択してください"); return; }
+    const planRows = $("planSettingsBody").querySelectorAll("tr");
+    planRows.forEach((row,i)=>{
+      st.plans[i].name = row.querySelector(".plan-name").value.trim() || "プラン";
+      st.plans[i].price = parseFloat(row.querySelector(".plan-price").value)||0;
+    });
+    const optRows = $("optionSettingsBody").querySelectorAll("tr");
+    optRows.forEach((row,i)=>{
+      st.options[i].name = row.querySelector(".opt-name").value.trim() || "オプション";
+      st.options[i].price = parseFloat(row.querySelector(".opt-price").value)||0;
+    });
+    st.extensionFeePerHour = parseFloat($("extensionFeeInput").value)||0;
+    st.monthlyRent = parseFloat($("monthlyRentInput").value)||0;
+    st.monthlyUtilities = parseFloat($("monthlyUtilitiesInput").value)||0;
+    await saveStudio(st.id, {
+      plans:st.plans, options:st.options, extensionFeePerHour:st.extensionFeePerHour,
+      monthlyRent:st.monthlyRent, monthlyUtilities:st.monthlyUtilities,
+    });
+    toast("料金設定を保存しました");
+  });
+
+  // =====================================================================
+  // STUDIOS
+  // =====================================================================
+  function renderStudiosList(){
+    const wrap = $("studiosList");
+    if(!studios.length){
+      wrap.innerHTML = `<div class="empty">スタジオが登録されていません。「+ スタジオ追加」から始めましょう。</div>`;
+      return;
+    }
+    wrap.innerHTML = studios.map(s=>{
+      const count = reservations.filter(r=>r.studioId===s.id).length;
+      return `<div class="studiocard">
+        <div class="swatch" style="background:${s.color||'#999'}"></div>
+        <div class="info">
+          <div class="name">${escapeHtml(s.name)}</div>
+          <div class="meta">${escapeHtml(s.address||"")}${s.address?" ・ ":""}予約 ${count}件${s.note?" ・ "+escapeHtml(s.note):""}</div>
+        </div>
+        <button class="btn sm ghost" data-edit-studio="${s.id}">編集</button>
+      </div>`;
+    }).join("");
+    wrap.querySelectorAll("[data-edit-studio]").forEach(b=>{
+      b.addEventListener("click", ()=>openStudioModal(b.dataset.editStudio));
+    });
+  }
+
+  let editingStudioId = null;
+  function openStudioModal(id){
+    editingStudioId = id || null;
+    const s = id? getStudio(id) : null;
+    $("studioModalTitle").textContent = s? "スタジオを編集" : "新規スタジオ";
+    $("btnDeleteStudio").style.display = s? "" : "none";
+    $("sName").value = s? s.name : "";
+    $("sColor").value = s? (s.color||"#3d6b96") : "#3d6b96";
+    $("sAddress").value = s? (s.address||"") : "";
+    $("sNote").value = s? (s.note||"") : "";
+    $("studioModalOverlay").style.display = "flex";
+  }
+  function closeStudioModal(){ $("studioModalOverlay").style.display="none"; }
+  $("btnNewStudio").addEventListener("click", ()=>openStudioModal(null));
+  $("studioModalClose").addEventListener("click", closeStudioModal);
+  $("btnCancelStudioModal").addEventListener("click", closeStudioModal);
+  $("studioModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="studioModalOverlay") closeStudioModal(); });
+
+  $("btnSaveStudio").addEventListener("click", async ()=>{
+    const name = $("sName").value.trim();
+    if(!name){ toast("スタジオ名を入力してください"); return; }
+    if(editingStudioId){
+      await saveStudio(editingStudioId, {
+        name, color: $("sColor").value, address: $("sAddress").value.trim(), note: $("sNote").value.trim(),
+      });
+    } else {
+      const seed = blankStudioSeed(name);
+      seed.color = $("sColor").value; seed.address = $("sAddress").value.trim(); seed.note = $("sNote").value.trim();
+      await createStudio(seed);
+    }
+    closeStudioModal();
+  });
+  $("btnDeleteStudio").addEventListener("click", async ()=>{
+    if(!editingStudioId) return;
+    const count = reservations.filter(r=>r.studioId===editingStudioId).length;
+    const msg = count>0
+      ? `このスタジオには${count}件の予約があります。スタジオを削除しても予約データは残りますが、スタジオ選択には表示されなくなります。削除しますか？`
+      : "このスタジオを削除しますか？";
+    if(!confirm(msg)) return;
+    await deleteStudio(editingStudioId);
+    closeStudioModal();
+  });
+
+  // =====================================================================
+  // DB WIRING
+  // =====================================================================
+  function localId(){ return "local_"+Date.now()+"_"+Math.random().toString(36).slice(2,7); }
+
+  async function createStudio(seed){
+    if(!dbAvailable){
+      seed.id = localId(); studios.push(seed);
+      renderStudioSwitcher(); renderCurrentView();
+      toast("保存しました(この端末のみ・共有されません)");
+      return;
+    }
+    try{
+      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return; }
+      await db.collection("studios").add(seed);
+      toast("スタジオを追加しました");
+    }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
+  }
+  async function saveStudio(id, patch){
+    if(!dbAvailable){
+      const s = getStudio(id); if(s) Object.assign(s, patch);
+      renderStudioSwitcher(); renderCurrentView();
+      return;
+    }
+    try{
+      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return; }
+      await db.collection("studios").doc(id).update(patch);
+    }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
+  }
+  async function deleteStudio(id){
+    if(!dbAvailable){
+      studios = studios.filter(s=>s.id!==id);
+      if(currentStudioId===id) currentStudioId=ALL;
+      renderStudioSwitcher(); renderCurrentView();
+      return;
+    }
+    try{ await db.collection("studios").doc(id).delete(); toast("削除しました"); }
+    catch(e){ toast("削除に失敗しました"); }
+  }
+
+  async function saveReservation(id, data){
+    if(!dbAvailable){
+      if(id){ const i=reservations.findIndex(r=>r.id===id); reservations[i]={...reservations[i],...data}; }
+      else { id=localId(); data.id=id; data.createdAt=new Date().toISOString(); reservations.push(data); }
+      renderCurrentView();
+      toast("保存しました(この端末のみ・共有されません)");
+      return id;
+    }
+    try{
+      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return null; }
+      let outId = id;
+      if(id){ await db.collection("reservations").doc(id).update(data); }
+      else{ data.createdAt = new Date().toISOString(); const ref = await db.collection("reservations").add(data); outId = ref.id; }
+      toast("保存しました");
+      return outId;
+    }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); return null; }
+  }
+  async function deleteReservation(id){
+    if(!dbAvailable){ reservations = reservations.filter(r=>r.id!==id); renderCurrentView(); return; }
+    try{ await db.collection("reservations").doc(id).delete(); toast("削除しました"); }
+    catch(e){ toast("削除に失敗しました"); }
+  }
+
+  async function saveTemplate(id, data){
+    if(!dbAvailable){
+      if(id){ const i=templates.findIndex(t=>t.id===id); templates[i]={...templates[i],...data}; }
+      else { data.id=localId(); templates.push(data); }
+      renderTemplateList();
+      toast("保存しました(この端末のみ・共有されません)");
+      return;
+    }
+    try{
+      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return; }
+      if(id){ await db.collection("mailTemplates").doc(id).update(data); }
+      else{ await db.collection("mailTemplates").add(data); }
+      toast("保存しました");
+    }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
+  }
+  async function deleteTemplate(id){
+    if(!dbAvailable){ templates = templates.filter(t=>t.id!==id); renderTemplateList(); return; }
+    try{ await db.collection("mailTemplates").doc(id).delete(); toast("削除しました"); }
+    catch(e){ toast("削除に失敗しました"); }
+  }
+
+  async function saveCoupon(id, data){
+    if(!dbAvailable){
+      if(id){ const i=coupons.findIndex(c=>c.id===id); coupons[i]={...coupons[i],...data}; }
+      else { data.id=localId(); coupons.push(data); }
+      renderCouponsTable();
+      toast("保存しました(この端末のみ・共有されません)");
+      return;
+    }
+    try{
+      if(!canWrite){ toast("閲覧のみのアクセスのため保存できません"); return; }
+      if(id){ await db.collection("coupons").doc(id).update(data); }
+      else{ await db.collection("coupons").add(data); }
+      toast("保存しました");
+    }catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
+  }
+  async function deleteCoupon(id){
+    if(!dbAvailable){ coupons = coupons.filter(c=>c.id!==id); renderCouponsTable(); return; }
+    try{ await db.collection("coupons").doc(id).delete(); toast("削除しました"); }
+    catch(e){ toast("削除に失敗しました"); }
+  }
+
+  // ---------- one-time migration from single-studio (v1) data ----------
+  async function maybeMigrateLegacy(){
+    if(migrationChecked) return;
+    migrationChecked = true;
+    if(!dbAvailable || studios.length>0) return;
+    try{
+      const legacy = await db.doc("config/pricing").get();
+      const seed = defaultStudioSeed();
+      if(legacy.exists){
+        const d = legacy.data();
+        if(d.plans && d.plans.length) seed.plans = d.plans;
+        if(d.options && d.options.length) seed.options = d.options;
+        if(typeof d.extensionFeePerHour === "number") seed.extensionFeePerHour = d.extensionFeePerHour;
+      }
+      const ref = await db.collection("studios").add(seed);
+      // backfill any studio-less reservations/coupons to this studio
+      const resSnap = await db.collection("reservations").get();
+      const updates = [];
+      resSnap.docs.forEach(d=>{
+        if(!d.data().studioId) updates.push(db.collection("reservations").doc(d.id).update({studioId:ref.id, studioName:seed.name}));
+      });
+      const couSnap = await db.collection("coupons").get();
+      couSnap.docs.forEach(d=>{
+        if(d.data().studioId===undefined) updates.push(db.collection("coupons").doc(d.id).update({studioId:null}));
+      });
+      await Promise.all(updates);
+    }catch(e){ console.error("migration skipped", e); }
+  }
+
+  function subscribeAll(){
+    db.collection("studios").onSnapshot(snap=>{
+      studios = snap.docs.map(d=>({id:d.id, plans:[], options:[], extensionFeePerHour:0, ...d.data()}));
+      renderStudioSwitcher();
+      renderCurrentView();
+      if(studios.length===0) maybeMigrateLegacy();
+    }, err=>console.error(err));
+
+    db.collection("reservations").onSnapshot(snap=>{
+      reservations = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      renderCurrentView();
+    }, err=>console.error(err));
+
+    db.collection("coupons").onSnapshot(snap=>{
+      coupons = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      if(activeViewName()==="coupons") renderCouponsTable();
+    }, err=>console.error(err));
+
+    db.collection("mailTemplates").onSnapshot(snap=>{
+      templates = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      if(templates.length===0) seedDefaultTemplate();
+      if(activeViewName()==="mail") renderTemplateList();
+    }, err=>console.error(err));
+  }
+
+  let templateSeedChecked = false;
+  function seedDefaultTemplate(){
+    if(templateSeedChecked) return; templateSeedChecked = true;
+    const seed = {
+      name:"予約確定のご案内", studioId:null,
+      subject:"【ご予約確定】{{studioName}}",
+      body:"{{customerName}} 様\n\nこの度はご予約いただき誠にありがとうございます。\n以下の内容でご予約を確定いたしましたのでご確認くださいませ。\n\n■ご予約日時\n{{date}} {{startTime}}〜{{endTime}}\n■プラン\n{{planName}}\n■合計金額\n{{total}}\n\nご不明点がございましたら本メールにご返信ください。\nどうぞよろしくお願いいたします。\n\n{{studioName}}",
+      createdAt:new Date().toISOString(),
+    };
+    if(dbAvailable && canWrite) db.collection("mailTemplates").add(seed).catch(()=>{});
+  }
+
+  // =====================================================================
+  // LOCK SCREEN (per-person email + password accounts)
+  // =====================================================================
+  function normalizeEmail(e){ return (e||"").trim().toLowerCase(); }
+  function bufToHex(buf){ return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join(""); }
+  function hexToBuf(hex){
+    const bytes = new Uint8Array(hex.length/2);
+    for(let i=0;i<bytes.length;i++) bytes[i] = parseInt(hex.substr(i*2,2),16);
+    return bytes;
+  }
+  function randomSaltHex(){ return bufToHex(crypto.getRandomValues(new Uint8Array(16)).buffer); }
+  async function hashPassword(password, saltHex){
+    // PBKDF2-SHA256, 100k iterations. Only the salt+hash are ever stored/compared — the plain password never leaves this function.
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(password), {name:"PBKDF2"}, false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits(
+      {name:"PBKDF2", salt:hexToBuf(saltHex), iterations:100000, hash:"SHA-256"},
+      keyMaterial, 256
+    );
+    return bufToHex(bits);
+  }
+
+  function showLockErr(msg, elId){
+    $(elId||"lockErr").textContent = msg;
+    const card = $("lockCard");
+    card.classList.remove("shake");
+    void card.offsetWidth;
+    card.classList.add("shake");
+  }
+  function showLoginForm(){
+    $("registerFormWrap").style.display = "none";
+    $("loginFormWrap").style.display = "";
+    $("lockErr").textContent = ""; $("regErr").textContent = "";
+    $("loginEmail").focus();
+  }
+  function showRegisterForm(){
+    $("loginFormWrap").style.display = "none";
+    $("registerFormWrap").style.display = "";
+    $("lockErr").textContent = ""; $("regErr").textContent = "";
+    $("regEmail").focus();
+  }
+  $("btnShowRegister").addEventListener("click", showRegisterForm);
+  $("btnShowLogin").addEventListener("click", showLoginForm);
+
+  async function getAccount(email){
+    if(dbAvailable){
+      const snap = await db.doc("accounts/"+email).get();
+      return snap.exists ? snap.data() : null;
+    }
+    const raw = safeGet(LOCAL_ACCOUNT_KEY);
+    if(!raw) return null;
+    try{ const acc = JSON.parse(raw); return acc.email===email ? acc : null; }catch(e){ return null; }
+  }
+  async function setAccount(email, data){
+    if(dbAvailable){
+      await db.doc("accounts/"+email).set(data);
+    } else {
+      safeSet(LOCAL_ACCOUNT_KEY, JSON.stringify({email, ...data}));
+    }
+  }
+
+  function unlockApp(email){
+    currentUserEmail = email;
+    safeSet(UNLOCK_KEY, email);
+    $("currentUserLabel").textContent = "ログイン中: " + email;
+    $("lockScreen").style.display = "none";
+    $("app").classList.remove("locked");
+    renderStudioSwitcher();
+    renderCurrentView();
+  }
+
+  $("lockSubmit").addEventListener("click", async ()=>{
+    const email = normalizeEmail($("loginEmail").value);
+    const password = $("loginPassword").value;
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showLockErr("メールアドレスの形式が正しくありません"); return; }
+    if(!password){ showLockErr("パスワードを入力してください"); return; }
+    const btn = $("lockSubmit");
+    btn.disabled = true; $("loginEmail").disabled = true; $("loginPassword").disabled = true;
+    try{
+      const acc = await getAccount(email);
+      if(!acc){ showLockErr("このメールアドレスのアカウントが見つかりません"); return; }
+      const hash = await hashPassword(password, acc.passwordSalt);
+      if(hash !== acc.passwordHash){ showLockErr("パスワードが違います"); $("loginPassword").value=""; return; }
+      unlockApp(email);
+    }catch(e){
+      showLockErr("ログインに失敗しました: "+(e&&e.message||e));
+    }finally{
+      btn.disabled = false; $("loginEmail").disabled = false; $("loginPassword").disabled = false;
+    }
+  });
+  $("loginPassword").addEventListener("keydown", (e)=>{ if(e.key==="Enter") $("lockSubmit").click(); });
+
+  $("registerSubmit").addEventListener("click", async ()=>{
+    const email = normalizeEmail($("regEmail").value);
+    const password = $("regPassword").value;
+    const password2 = $("regPassword2").value;
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ showLockErr("メールアドレスの形式が正しくありません", "regErr"); return; }
+    if(password.length<6){ showLockErr("パスワードは6文字以上で設定してください", "regErr"); return; }
+    if(password!==password2){ showLockErr("パスワードが一致しません", "regErr"); return; }
+    if(dbAvailable && !canWrite){ showLockErr("このアカウントは閲覧のみのため新規登録できません。管理者に依頼してください", "regErr"); return; }
+    const btn = $("registerSubmit");
+    btn.disabled = true;
+    try{
+      const existing = await getAccount(email);
+      if(existing){ showLockErr("このメールアドレスは既に登録されています", "regErr"); return; }
+      const salt = randomSaltHex();
+      const hash = await hashPassword(password, salt);
+      await setAccount(email, {email, passwordSalt:salt, passwordHash:hash, createdAt:new Date().toISOString()});
+      toast(dbAvailable ? "アカウントを作成しました" : "アカウントを作成しました(この端末のみ・共有されません)");
+      unlockApp(email);
+    }catch(e){
+      showLockErr("登録に失敗しました: "+(e&&e.message||e), "regErr");
+    }finally{
+      btn.disabled = false;
+    }
+  });
+  $("regPassword2").addEventListener("keydown", (e)=>{ if(e.key==="Enter") $("registerSubmit").click(); });
+
+  $("btnLockNow").addEventListener("click", ()=>{
+    safeRemove(UNLOCK_KEY);
+    location.reload();
+  });
+
+  async function initLock(){
+    const savedEmail = safeGet(UNLOCK_KEY);
+    if(savedEmail){ unlockApp(savedEmail); return; }
+    $("lockScreen").style.display = "flex";
+    showLoginForm();
+  }
+
+  async function init(){
+    const pref = loadCurrentStudioPref();
+    if(pref) currentStudioId = pref;
+    renderStudioSwitcher();
+    renderCurrentView();
+
+    if(window.claude && window.claude.use){
+      try{
+        const [dbNs, userNs, sampleNs] = await Promise.all([claude.use("db"), claude.use("user"), claude.use("sample")]);
+        sampleFn = sampleNs || null;
+        updateAiMailButtonVisibility();
+        if(dbNs){
+          db = dbNs; dbAvailable = true;
+          if(userNs){
+            try{ canWrite = await userNs.can("data.write"); if(canWrite===null) canWrite = true; }
+            catch(e){ canWrite = true; }
+          }
+          subscribeAll();
+        } else {
+          seedLocalDefaults(); showLocalBanner();
+        }
+      }catch(e){ seedLocalDefaults(); showLocalBanner(); }
+    } else {
+      seedLocalDefaults(); showLocalBanner();
+    }
+    await initLock();
+  }
+  function seedLocalDefaults(){
+    const seed = defaultStudioSeed(); seed.id = localId();
+    studios = [seed];
+    templates = [{
+      id: localId(), name:"予約確定のご案内", studioId:null,
+      subject:"【ご予約確定】{{studioName}}",
+      body:"{{customerName}} 様\n\nこの度はご予約いただき誠にありがとうございます。\n以下の内容でご予約を確定いたしましたのでご確認くださいませ。\n\n■ご予約日時\n{{date}} {{startTime}}〜{{endTime}}\n■プラン\n{{planName}}\n■合計金額\n{{total}}\n\nご不明点がございましたら本メールにご返信ください。\nどうぞよろしくお願いいたします。\n\n{{studioName}}",
+    }];
+    renderStudioSwitcher(); renderCurrentView();
+  }
+  function showLocalBanner(){
+    const b = document.createElement("div");
+    b.className = "banner";
+    b.textContent = "共有データベースに接続できませんでした。この端末のみで一時的にご利用いただけます(データは他の人と共有されません)。";
+    document.getElementById("main").prepend(b);
+  }
+
+  init();
+})();
+</script>
+
+</body></html>
