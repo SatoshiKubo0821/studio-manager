@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdmin() { return isSignedIn() && myRole() == 'admin'; }
+    function isManagerOrAdmin() { return isSignedIn() && (myRole() == 'admin' || myRole() == 'manager'); }
+
+    // Member accounts + roles. Anyone signed in can read the member list
+    // (needed for the invite flow's bootstrap check); only admins can
+    // create/edit/delete member records or change roles.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Studio configuration (plans, pricing, fixed costs, etc.)
+    match /studios/{id} {
+      allow read: if isSignedIn();
+      allow write: if isManagerOrAdmin();
+    }
+
+    // Coupons
+    match /coupons/{id} {
+      allow read: if isSignedIn();
+      allow write: if isManagerOrAdmin();
+    }
+
+    // Reservations: any signed-in member (including staff) can manage these.
+    match /reservations/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Mail templates
+    match /mailTemplates/{id} {
+      allow read: if isSignedIn();
+      allow write: if isManagerOrAdmin();
+    }
+  }
+}
