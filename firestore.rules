@@ -8,12 +8,31 @@ service cloud.firestore {
     function isAdmin() { return isSignedIn() && myRole() == 'admin'; }
     function isManagerOrAdmin() { return isSignedIn() && (myRole() == 'admin' || myRole() == 'manager'); }
 
-    // Member accounts + roles. Anyone signed in can read the member list
-    // (needed for the invite flow's bootstrap check); only admins can
-    // create/edit/delete member records or change roles.
-    match /users/{userId} {
+    // One-time bootstrap marker. Once the first admin has been created,
+    // this doc exists and closes the self-bootstrap path below for good.
+    match /system/bootstrap {
       allow read: if isSignedIn();
       allow write: if isAdmin();
+    }
+
+    // Member accounts + roles. Anyone signed in can read the member list
+    // (needed for the invite flow's bootstrap check); only admins can
+    // create/edit/delete member records or change roles for OTHER users.
+    //
+    // Exception: a signed-in user may create their OWN doc as "admin" if
+    // the app has never been bootstrapped yet (system/bootstrap doesn't
+    // exist). Without this, nobody could ever become the first admin,
+    // because isAdmin() itself requires an existing users/{uid} doc.
+    // This path closes permanently once system/bootstrap is written.
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow update, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        request.resource.data.role == 'admin' &&
+        !exists(/databases/$(database)/documents/system/bootstrap)
+      );
     }
 
     // Studio configuration (plans, pricing, fixed costs, etc.)

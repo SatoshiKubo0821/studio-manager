@@ -2483,11 +2483,16 @@
       myRole = snap.data().role || "staff";
       return true;
     }
-    // Bootstrap: if there are no member records at all yet, the first
-    // person to sign in becomes the admin automatically.
-    const anySnap = await db.collection("users").limit(1).get();
-    if(anySnap.empty){
+    // Bootstrap: before the app has ever been set up, the first person to
+    // sign in becomes the admin automatically. Guarded server-side by
+    // firestore.rules (a user may create their own doc as "admin" only
+    // while system/bootstrap doesn't exist yet), so this path closes for
+    // good right after this write.
+    const bootstrapRef = db.collection("system").doc("bootstrap");
+    const bootstrapSnap = await bootstrapRef.get();
+    if(!bootstrapSnap.exists){
       await ref.set({ email:user.email, role:"admin", createdAt:new Date().toISOString(), createdBy:"bootstrap" });
+      await bootstrapRef.set({ done:true, by:user.uid, at:new Date().toISOString() });
       myRole = "admin";
       return true;
     }
@@ -2497,11 +2502,14 @@
   let dbSubscribed = false;
   auth.onAuthStateChanged(async user=>{
     if(user){
-      let allowed = true;
+      let allowed = false;
+      let roleCheckError = null;
       try{ allowed = await ensureUserRole(user); }
-      catch(e){ console.error("role check failed", e); allowed = true; myRole = myRole || "staff"; }
+      catch(e){ console.error("role check failed", e); roleCheckError = e; allowed = false; }
       if(!allowed){
-        showLockErr("このアカウントは登録されていません。管理者に招待を依頼してください。");
+        showLockErr(roleCheckError
+          ? "権限の確認に失敗しました。時間をおいて再度お試しください。"
+          : "このアカウントは登録されていません。管理者に招待を依頼してください。");
         await auth.signOut();
         return;
       }
