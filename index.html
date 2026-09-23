@@ -104,7 +104,7 @@
   .kpi.good .value{ color:var(--good); }
   .kpi.warn .value{ color:var(--warn); }
 
-  select, input[type=text], input[type=date], input[type=time], input[type=month], input[type=number], input[type=tel], input[type=color], textarea{
+  select, input[type=text], input[type=date], input[type=time], input[type=month], input[type=number], input[type=tel], input[type=url], input[type=color], textarea{
     font:inherit; color:var(--text); background:var(--surface-2);
     border:1px solid var(--border); border-radius:9px; padding:8px 10px; width:100%;
   }
@@ -163,6 +163,21 @@
   .chart text{ fill:var(--text-dim); font-size:9px; font-family:"Noto Sans JP",sans-serif; }
 
   .banner{ font-size:.78rem; padding:9px 14px; border-radius:9px; margin-bottom:14px; background:var(--warn-soft); color:var(--warn); border:1px solid transparent; }
+
+  .subhead{ font-size:.72rem; font-weight:700; color:var(--text-dim); letter-spacing:.05em; margin:18px 0 8px; padding-top:14px; border-top:1px solid var(--border); }
+  .hint{ font-size:.72rem; color:var(--text-dim); margin-top:4px; line-height:1.5; }
+  .tabs{ display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .tab{ background:none; border:none; border-bottom:2px solid transparent; padding:8px 12px; font:inherit; font-size:.82rem; font-weight:700; color:var(--text-dim); cursor:pointer; margin-bottom:-1px; }
+  .tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .mapgrid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(190px,1fr)); gap:8px 12px; }
+  .mapgrid .field{ margin-bottom:0; }
+  .mapgrid label{ font-size:.72rem; }
+  .linkrow{ display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .linkrow a{ font-size:.72rem; color:var(--accent); text-decoration:none; }
+  .linkrow a:hover{ text-decoration:underline; }
+  .studiocard .actions{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  #iPreviewBody tr.skip td{ color:var(--text-dim); }
+  #iPreviewBody td{ padding:7px 10px; }
   .toast{
     position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
     background:var(--text); color:var(--bg); padding:9px 18px; border-radius:99px;
@@ -910,7 +925,7 @@
 
 <!-- ================= STUDIO MODAL ================= -->
 <div id="studioModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:40; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
-  <div class="card" style="width:100%; max-width:420px; margin-top:0;">
+  <div class="card" style="width:100%; max-width:520px; margin-top:0;">
     <div class="card-head">
       <h2 id="studioModalTitle">新規スタジオ</h2>
       <span class="icon-x" id="studioModalClose">&times;</span>
@@ -922,11 +937,99 @@
         <div class="field"><label>所在地(任意)</label><input type="text" id="sAddress"></div>
       </div>
       <div class="field"><label>メモ</label><input type="text" id="sNote"></div>
+
+      <div class="subhead">Google連携(任意)</div>
+      <div class="field">
+        <label>予約スプレッドシートのURL</label>
+        <input type="url" id="sSheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+        <div class="hint">ブラウザで開いているシートのURLをそのまま貼り付けてください。</div>
+      </div>
+      <div class="field">
+        <label>GoogleカレンダーのカレンダーID</label>
+        <input type="text" id="sCalendarId" placeholder="例: xxxx@group.calendar.google.com">
+        <div class="hint">Googleカレンダーの「設定と共有」→「カレンダーの統合」に表示されるIDです。個人のメインカレンダーはGmailアドレスがIDになります。</div>
+      </div>
       <div style="display:flex; justify-content:space-between; margin-top:10px;">
         <button class="btn danger" id="btnDeleteStudio" style="display:none;">削除</button>
         <div style="margin-left:auto; display:flex; gap:8px;">
           <button class="btn ghost" id="btnCancelStudioModal">キャンセル</button>
           <button class="btn primary" id="btnSaveStudio">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= IMPORT MODAL ================= -->
+<div id="importModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:45; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:880px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="importModalTitle">予約の取り込み</h2>
+      <span class="icon-x" id="importModalClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="tabs" id="importTabs">
+        <button type="button" class="tab active" data-src="sheet">スプレッドシート</button>
+        <button type="button" class="tab" data-src="calendar">Googleカレンダー</button>
+      </div>
+
+      <div class="banner" id="importGoogleBanner" hidden></div>
+      <div id="importConnectRow" style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+        <button class="btn" id="btnGoogleConnect" type="button">Googleアカウントで接続</button>
+        <span class="muted" id="googleConnectStatus" style="font-size:.78rem;">未接続</span>
+      </div>
+
+      <!-- sheet -->
+      <div id="importSheetPane">
+        <div class="muted" id="importSheetMissing" hidden>このスタジオにはスプレッドシートが登録されていません。スタジオの「編集」からURLを登録してください。</div>
+        <div id="importSheetBody">
+          <div class="row2">
+            <div class="field"><label>シート(タブ)</label><select id="iSheetTab"></select></div>
+            <div class="field"><label>見出しの行番号</label><input type="number" id="iHeaderRow" min="1" value="1"></div>
+          </div>
+          <button class="btn" id="btnLoadSheet" type="button">シートを読み込む</button>
+          <div id="iMappingWrap" hidden style="margin-top:14px;">
+            <div class="subhead">列の対応づけ</div>
+            <div class="hint" style="margin-bottom:8px;">見出し名から自動で推定しています。違っていれば選び直してください。「開始時刻」の列に「10:00〜15:00」のように時間帯が入っている場合は、終了時刻も自動で読み取ります。</div>
+            <div class="mapgrid" id="iMapping"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- calendar -->
+      <div id="importCalendarPane" hidden>
+        <div class="muted" id="importCalMissing" hidden>このスタジオにはカレンダーが登録されていません。スタジオの「編集」からカレンダーIDを登録してください。</div>
+        <div id="importCalBody">
+          <div class="row2">
+            <div class="field"><label>期間(開始)</label><input type="date" id="iCalFrom"></div>
+            <div class="field"><label>期間(終了)</label><input type="date" id="iCalTo"></div>
+          </div>
+          <div class="hint" style="margin-bottom:10px;">予定のタイトルを「お客様名」、説明を「備考」として取り込みます。終日の予定は対象外です。</div>
+          <button class="btn" id="btnLoadCalendar" type="button">予定を読み込む</button>
+        </div>
+      </div>
+
+      <!-- shared preview -->
+      <div id="iPreviewWrap" hidden style="margin-top:16px;">
+        <div class="subhead" id="iPreviewHead">プレビュー</div>
+        <div class="row2">
+          <div class="field">
+            <label>支払ステータス(列の指定がない場合)</label>
+            <select id="iDefaultPay"><option>未収</option><option>入金済</option></select>
+          </div>
+          <div class="field" style="display:flex; align-items:flex-end; gap:12px; flex-wrap:wrap;">
+            <label class="checkrow" style="margin:0 0 8px;"><input type="checkbox" id="iOnlyNew" checked>取り込める行だけ表示</label>
+          </div>
+        </div>
+        <div class="tablewrap" style="max-height:360px; overflow-y:auto; border:1px solid var(--border); border-radius:10px;">
+          <table>
+            <thead><tr><th><input type="checkbox" id="iCheckAll" style="width:auto;"></th><th>状態</th><th>日付</th><th>時間</th><th>お客様</th><th class="num">金額</th><th>備考</th></tr></thead>
+            <tbody id="iPreviewBody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; gap:10px; flex-wrap:wrap;">
+          <span class="muted" id="iSummary" style="font-size:.8rem;"></span>
+          <button class="btn primary" id="btnRunImport" type="button">選択した行を取り込む</button>
         </div>
       </div>
     </div>
@@ -956,6 +1059,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://accounts.google.com/gsi/client" async></script>
 
 <script>
 (function(){
@@ -2118,17 +2222,33 @@
     }
     wrap.innerHTML = studios.map(s=>{
       const count = reservations.filter(r=>r.studioId===s.id).length;
+      const links = [];
+      if(s.sheetId) links.push(`<a href="${escapeHtml(sheetOpenUrl(s))}" target="_blank" rel="noopener">スプレッドシートを開く ↗</a>`);
+      if(s.calendarId) links.push(`<a href="${escapeHtml(calendarOpenUrl(s.calendarId))}" target="_blank" rel="noopener">カレンダーを開く ↗</a>`);
+      const pills = [
+        s.sheetId ? `<span class="pill good">シート連携</span>` : `<span class="pill muted">シート未登録</span>`,
+        s.calendarId ? `<span class="pill good">カレンダー連携</span>` : `<span class="pill muted">カレンダー未登録</span>`,
+      ].join(" ");
+      const last = [s.lastSheetImportAt?`シート取込 ${fmtDateTime(s.lastSheetImportAt)}`:"", s.lastCalendarImportAt?`カレンダー取込 ${fmtDateTime(s.lastCalendarImportAt)}`:""].filter(Boolean).join(" ・ ");
       return `<div class="studiocard">
         <div class="swatch" style="background:${s.color||'#999'}"></div>
         <div class="info">
           <div class="name">${escapeHtml(s.name)}</div>
           <div class="meta">${escapeHtml(s.address||"")}${s.address?" ・ ":""}予約 ${count}件${s.note?" ・ "+escapeHtml(s.note):""}</div>
+          <div class="meta" style="margin-top:5px;">${pills}${last?` <span style="margin-left:4px;">${escapeHtml(last)}</span>`:""}</div>
+          ${links.length?`<div class="linkrow">${links.join("")}</div>`:""}
         </div>
-        <button class="btn sm ghost" data-edit-studio="${s.id}">編集</button>
+        <div class="actions">
+          ${(s.sheetId||s.calendarId)?`<button class="btn sm" data-import-studio="${s.id}">取り込み</button>`:""}
+          <button class="btn sm ghost" data-edit-studio="${s.id}">編集</button>
+        </div>
       </div>`;
     }).join("");
     wrap.querySelectorAll("[data-edit-studio]").forEach(b=>{
       b.addEventListener("click", ()=>openStudioModal(b.dataset.editStudio));
+    });
+    wrap.querySelectorAll("[data-import-studio]").forEach(b=>{
+      b.addEventListener("click", ()=>openImportModal(b.dataset.importStudio));
     });
   }
 
@@ -2142,6 +2262,8 @@
     $("sColor").value = s? (s.color||"#3d6b96") : "#3d6b96";
     $("sAddress").value = s? (s.address||"") : "";
     $("sNote").value = s? (s.note||"") : "";
+    $("sSheetUrl").value = s? (s.sheetUrl||"") : "";
+    $("sCalendarId").value = s? (s.calendarId||"") : "";
     $("studioModalOverlay").style.display = "flex";
   }
   function closeStudioModal(){ $("studioModalOverlay").style.display="none"; }
@@ -2153,13 +2275,22 @@
   $("btnSaveStudio").addEventListener("click", async ()=>{
     const name = $("sName").value.trim();
     if(!name){ toast("スタジオ名を入力してください"); return; }
+    const sheetUrl = $("sSheetUrl").value.trim();
+    const sheetId = parseSheetId(sheetUrl);
+    if(sheetUrl && !sheetId){ toast("スプレッドシートのURLを確認してください(docs.google.com/spreadsheets/d/… の形式)"); return; }
+    const calendarId = normalizeCalendarId($("sCalendarId").value);
+    const googleFields = { sheetUrl, sheetId: sheetId||"", calendarId };
+    // a different sheet means the saved tab/column mapping no longer applies
+    const prev = editingStudioId ? getStudio(editingStudioId) : null;
+    if(prev && (prev.sheetId||"") !== googleFields.sheetId){ googleFields.sheetTab = ""; googleFields.sheetMapping = null; }
     if(editingStudioId){
       await saveStudio(editingStudioId, {
-        name, color: $("sColor").value, address: $("sAddress").value.trim(), note: $("sNote").value.trim(),
+        name, color: $("sColor").value, address: $("sAddress").value.trim(), note: $("sNote").value.trim(), ...googleFields,
       });
     } else {
       const seed = blankStudioSeed(name);
       seed.color = $("sColor").value; seed.address = $("sAddress").value.trim(); seed.note = $("sNote").value.trim();
+      Object.assign(seed, googleFields);
       await createStudio(seed);
     }
     closeStudioModal();
@@ -2173,6 +2304,460 @@
     if(!confirm(msg)) return;
     await deleteStudio(editingStudioId);
     closeStudioModal();
+  });
+
+  // =====================================================================
+  // GOOGLE INTEGRATION (per-studio spreadsheet / calendar import)
+  // =====================================================================
+  // OAuth "Web application" client ID from Google Cloud Console (project
+  // studiomanager-5eb1d). Public by design, like firebaseConfig above.
+  const GOOGLE_OAUTH_CLIENT_ID = "";
+  const GOOGLE_SCOPES = "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/calendar.readonly";
+
+  function parseSheetId(url){
+    const m = String(url||"").match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/);
+    return m ? m[1] : null;
+  }
+  function sheetGidFromUrl(url){
+    const m = String(url||"").match(/[#&?]gid=(\d+)/);
+    return m ? Number(m[1]) : null;
+  }
+  function sheetOpenUrl(st){ return st.sheetUrl || `https://docs.google.com/spreadsheets/d/${st.sheetId}/edit`; }
+  function calendarOpenUrl(id){ return "https://calendar.google.com/calendar/embed?src=" + encodeURIComponent(id); }
+  function normalizeCalendarId(v){
+    v = String(v||"").trim();
+    // accept a pasted embed / public URL and pull the id out of ?src= or ?cid=
+    const m = v.match(/[?&](?:src|cid)=([^&#]+)/);
+    if(m){
+      let id = decodeURIComponent(m[1]);
+      if(/^cid=/.test(m[0].slice(1)) && !id.includes("@")){ try{ id = atob(id); }catch(e){} }
+      return id;
+    }
+    return v;
+  }
+  function fmtDateTime(iso){
+    const d = new Date(iso); if(isNaN(d)) return "";
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+  }
+  const pad2 = (n)=>String(n).padStart(2,"0");
+  function localDateStr(d){ return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+  function localTimeStr(d){ return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+
+  // ---------- OAuth token (kept in memory only) ----------
+  let googleToken = null; // {accessToken, expiresAt}
+  let tokenClient = null;
+  function googleTokenValid(){ return googleToken && Date.now() < googleToken.expiresAt - 60000; }
+  function requestGoogleToken(){
+    return new Promise((resolve, reject)=>{
+      if(!GOOGLE_OAUTH_CLIENT_ID){ reject(new Error("Google連携の初期設定(OAuthクライアントID)がまだです")); return; }
+      if(!(window.google && google.accounts && google.accounts.oauth2)){ reject(new Error("Googleのログイン部品を読み込めませんでした。ページを再読み込みしてください")); return; }
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_OAUTH_CLIENT_ID,
+        scope: GOOGLE_SCOPES,
+        login_hint: currentUserEmail || undefined,
+        callback: (resp)=>{
+          if(resp.error){ reject(new Error(resp.error_description || resp.error)); return; }
+          googleToken = { accessToken: resp.access_token, expiresAt: Date.now() + (Number(resp.expires_in)||3600)*1000 };
+          renderGoogleStatus();
+          resolve(googleToken.accessToken);
+        },
+        error_callback: (err)=> reject(new Error(err && err.type==="popup_closed" ? "Googleのログイン画面が閉じられました" : "Googleに接続できませんでした")),
+      });
+      tokenClient.requestAccessToken({ prompt: googleToken ? "" : "consent" });
+    });
+  }
+  async function ensureGoogleToken(){
+    if(googleTokenValid()) return googleToken.accessToken;
+    return requestGoogleToken();
+  }
+  async function googleGet(url){
+    const token = await ensureGoogleToken();
+    const res = await fetch(url, { headers:{ Authorization: "Bearer " + token } });
+    if(res.ok) return res.json();
+    let msg = "";
+    try{ const j = await res.json(); msg = (j.error && j.error.message) || ""; }catch(e){}
+    if(res.status===401){ googleToken = null; renderGoogleStatus(); throw new Error("Googleの接続が切れました。もう一度「Googleアカウントで接続」を押してください"); }
+    if(res.status===403 && /has not been used|is disabled/i.test(msg)) throw new Error("Google Cloud側で API が有効になっていません: " + msg);
+    if(res.status===403) throw new Error("このGoogleアカウントには閲覧権限がありません。共有設定を確認してください");
+    if(res.status===404) throw new Error("見つかりませんでした。URL / カレンダーID と共有設定を確認してください");
+    throw new Error(`Googleからの読み込みに失敗しました (${res.status}) ${msg}`);
+  }
+
+  // ---------- import modal state ----------
+  let importStudioId = null;
+  let importSource = "sheet";   // "sheet" | "calendar"
+  let sheetValues = null;       // raw 2D array from the Sheets API
+  let sheetTabsLoadedFor = null;
+  let importRows = [];          // preview candidates
+
+  const MAP_FIELDS = [
+    {key:"date",     label:"日付",       required:true, kw:["予約日","利用日","撮影日","日付","日程","date"]},
+    {key:"start",    label:"開始時刻 / 時間帯", kw:["開始","時間帯","時刻","時間","start","time"]},
+    {key:"end",      label:"終了時刻",   kw:["終了","end"]},
+    {key:"customer", label:"お客様名",   required:true, kw:["お客様","お名前","氏名","名前","予約者","顧客","name"]},
+    {key:"contact",  label:"連絡先",     kw:["連絡先","メール","mail","電話","tel"]},
+    {key:"sns",      label:"SNS",        kw:["sns","twitter","instagram","インスタ"]},
+    {key:"work",     label:"撮影作品名", kw:["作品"]},
+    {key:"plan",     label:"プラン",     kw:["プラン","plan"]},
+    {key:"total",    label:"金額",       kw:["合計","金額","料金","売上","total","price"]},
+    {key:"pay",      label:"支払状況",   kw:["入金","支払","ステータス","status"]},
+    {key:"notes",    label:"備考",       kw:["備考","メモ","note"]},
+  ];
+
+  function importStudio(){ return getStudio(importStudioId); }
+
+  function openImportModal(studioId){
+    const st = getStudio(studioId); if(!st) return;
+    importStudioId = studioId;
+    sheetValues = null; importRows = []; sheetTabsLoadedFor = null;
+    $("importModalTitle").textContent = `予約の取り込み — ${st.name}`;
+    $("iSheetTab").innerHTML = st.sheetTab ? `<option>${escapeHtml(st.sheetTab)}</option>` : `<option value="">(接続後に選べます)</option>`;
+    $("iHeaderRow").value = (st.sheetMapping && st.sheetMapping.headerRow) || 1;
+    $("iMappingWrap").hidden = true;
+    const today = new Date();
+    const from = new Date(today); from.setMonth(from.getMonth()-1);
+    const to = new Date(today); to.setMonth(to.getMonth()+3);
+    $("iCalFrom").value = localDateStr(from);
+    $("iCalTo").value = localDateStr(to);
+    $("iPreviewWrap").hidden = true;
+    const banner = $("importGoogleBanner");
+    if(!GOOGLE_OAUTH_CLIENT_ID){
+      banner.hidden = false;
+      banner.textContent = "Google連携の初期設定(OAuthクライアントIDの登録)がまだ完了していないため、取り込みはまだ使えません。スプレッドシートURL・カレンダーIDの登録とリンクは使えます。";
+    } else banner.hidden = true;
+    switchImportSource(st.sheetId ? "sheet" : "calendar");
+    renderGoogleStatus();
+    $("importModalOverlay").style.display = "flex";
+    if(googleTokenValid() && importSource==="sheet") loadSheetTabs().catch(e=>toast(e.message));
+  }
+  function closeImportModal(){ $("importModalOverlay").style.display = "none"; }
+  $("importModalClose").addEventListener("click", closeImportModal);
+  $("importModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="importModalOverlay") closeImportModal(); });
+
+  function switchImportSource(src){
+    importSource = src;
+    const st = importStudio();
+    document.querySelectorAll("#importTabs .tab").forEach(t=>t.classList.toggle("active", t.dataset.src===src));
+    $("importSheetPane").hidden = src!=="sheet";
+    $("importCalendarPane").hidden = src!=="calendar";
+    $("importSheetMissing").hidden = !!(st && st.sheetId);
+    $("importSheetBody").hidden = !(st && st.sheetId);
+    $("importCalMissing").hidden = !!(st && st.calendarId);
+    $("importCalBody").hidden = !(st && st.calendarId);
+    importRows = [];
+    $("iPreviewWrap").hidden = true;
+    if(src==="sheet" && sheetValues) buildSheetRows();
+  }
+  document.querySelectorAll("#importTabs .tab").forEach(t=>{
+    t.addEventListener("click", ()=>{
+      switchImportSource(t.dataset.src);
+      if(t.dataset.src==="sheet" && googleTokenValid()) loadSheetTabs().catch(e=>toast(e.message));
+    });
+  });
+
+  function renderGoogleStatus(){
+    const ok = googleTokenValid();
+    $("googleConnectStatus").textContent = ok ? "接続済み" : "未接続";
+    $("googleConnectStatus").style.color = ok ? "var(--good)" : "";
+    $("btnGoogleConnect").textContent = ok ? "別のアカウントで接続し直す" : "Googleアカウントで接続";
+    $("btnGoogleConnect").disabled = !GOOGLE_OAUTH_CLIENT_ID;
+    ["btnLoadSheet","btnLoadCalendar"].forEach(id=> $(id).disabled = !GOOGLE_OAUTH_CLIENT_ID);
+  }
+  $("btnGoogleConnect").addEventListener("click", async ()=>{
+    try{
+      if(googleTokenValid()){ try{ google.accounts.oauth2.revoke(googleToken.accessToken, ()=>{}); }catch(e){} googleToken = null; }
+      await requestGoogleToken();
+      toast("Googleに接続しました");
+      if(importSource==="sheet") await loadSheetTabs();
+    }catch(e){ toast(e.message); }
+  });
+
+  // ---------- spreadsheet ----------
+  async function loadSheetTabs(){
+    const st = importStudio(); if(!st || !st.sheetId) return;
+    if(sheetTabsLoadedFor===st.sheetId) return;
+    const meta = await googleGet(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(st.sheetId)}?fields=properties.title,sheets.properties(sheetId,title)`);
+    const tabs = (meta.sheets||[]).map(x=>x.properties);
+    const gid = sheetGidFromUrl(st.sheetUrl);
+    const preferred = (st.sheetTab && tabs.find(t=>t.title===st.sheetTab)) || (gid!=null && tabs.find(t=>t.sheetId===gid)) || tabs[0];
+    $("iSheetTab").innerHTML = tabs.map(t=>`<option>${escapeHtml(t.title)}</option>`).join("");
+    if(preferred) $("iSheetTab").value = preferred.title;
+    sheetTabsLoadedFor = st.sheetId;
+  }
+
+  $("btnLoadSheet").addEventListener("click", async ()=>{
+    const st = importStudio(); if(!st) return;
+    const btn = $("btnLoadSheet");
+    btn.disabled = true; btn.textContent = "読み込み中…";
+    try{
+      await loadSheetTabs();
+      const tab = $("iSheetTab").value;
+      if(!tab) throw new Error("シート(タブ)を選択してください");
+      const range = encodeURIComponent(`'${tab.replace(/'/g,"''")}'`);
+      const data = await googleGet(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(st.sheetId)}/values/${range}?valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`);
+      sheetValues = data.values || [];
+      if(!sheetValues.length) throw new Error("シートにデータがありません");
+      renderMappingUI();
+      buildSheetRows();
+    }catch(e){ toast(e.message); }
+    finally{ btn.disabled = false; btn.textContent = "シートを読み込む"; }
+  });
+  $("iHeaderRow").addEventListener("change", ()=>{ if(sheetValues){ renderMappingUI(true); buildSheetRows(); } });
+  $("iSheetTab").addEventListener("change", ()=>{ sheetValues = null; $("iMappingWrap").hidden = true; $("iPreviewWrap").hidden = true; });
+
+  function headerRowIndex(){ return Math.max(1, parseInt($("iHeaderRow").value,10)||1) - 1; }
+  function currentHeaders(){
+    const row = (sheetValues && sheetValues[headerRowIndex()]) || [];
+    const width = Math.max(row.length, ...sheetValues.slice(0,50).map(r=>r.length));
+    return Array.from({length:width}, (_,i)=> String(row[i]==null?"":row[i]).trim());
+  }
+  function colLetter(i){ let s=""; i++; while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; }
+
+  function guessMapping(headers){
+    const norm = headers.map(h=>h.toLowerCase().replace(/\s/g,""));
+    const taken = new Set(); const out = {};
+    // claim "終了時刻" before the broader start keywords (時刻/時間) can grab it
+    const order = [...MAP_FIELDS].sort((a,b)=> (b.key==="end") - (a.key==="end"));
+    order.forEach(f=>{
+      for(const kw of f.kw){
+        const idx = norm.findIndex((h,i)=> h && !taken.has(i) && h.includes(kw.toLowerCase()));
+        if(idx>=0){ out[f.key]=idx; taken.add(idx); return; }
+      }
+    });
+    return out;
+  }
+  function renderMappingUI(forceGuess){
+    const st = importStudio();
+    const headers = currentHeaders();
+    let mapping = {};
+    const saved = st.sheetMapping;
+    if(!forceGuess && saved && saved.tab===$("iSheetTab").value && saved.cols){
+      // saved mapping is stored by header name so column moves in the sheet don't break it
+      Object.entries(saved.cols).forEach(([k,name])=>{ const i = headers.indexOf(name); if(i>=0) mapping[k]=i; });
+    } else mapping = guessMapping(headers);
+    const opts = (sel)=> `<option value="">(使わない)</option>` + headers.map((h,i)=>`<option value="${i}" ${sel===i?"selected":""}>${colLetter(i)}: ${escapeHtml(h||"(見出しなし)")}</option>`).join("");
+    $("iMapping").innerHTML = MAP_FIELDS.map(f=>`<div class="field"><label>${f.label}${f.required?" *":""}</label><select data-map="${f.key}">${opts(mapping[f.key])}</select></div>`).join("");
+    $("iMapping").querySelectorAll("select").forEach(sel=> sel.addEventListener("change", buildSheetRows));
+    $("iMappingWrap").hidden = false;
+  }
+  function readMapping(){
+    const m = {};
+    $("iMapping").querySelectorAll("select[data-map]").forEach(sel=>{ if(sel.value!=="") m[sel.dataset.map] = Number(sel.value); });
+    return m;
+  }
+
+  // ---------- cell parsers ----------
+  function parseDateCell(v, ctx){
+    if(v==null) return null;
+    let s = String(v).trim().replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+    if(!s) return null;
+    if(/^\d{5}(\.\d+)?$/.test(s)){ // spreadsheet serial number
+      const d = new Date(Math.round((Number(s)-25569)*86400000));
+      return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}`;
+    }
+    let m = s.match(/(\d{4})\s*[\/\-.年]\s*(\d{1,2})\s*[\/\-.月]\s*(\d{1,2})/);
+    if(m){ ctx.year = Number(m[1]); return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`; }
+    m = s.match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})/);
+    if(m){
+      const y = ctx.year || new Date().getFullYear();
+      return `${y}-${pad2(m[1])}-${pad2(m[2])}`;
+    }
+    return null;
+  }
+  function parseTimes(v){
+    const s = String(v==null?"":v).replace(/[０-９：]/g, c=> c==="：" ? ":" : String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+    const out = [];
+    const re = /(\d{1,2})\s*(?::|時)\s*(\d{2})?/g; let m;
+    while((m = re.exec(s)) && out.length<2){
+      const h = Number(m[1]); if(h>30) continue;
+      out.push(`${pad2(h)}:${m[2]||"00"}`);
+    }
+    return out;
+  }
+  function parseAmount(v){
+    const s = String(v==null?"":v).replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[^\d.\-]/g,"");
+    if(!s || s==="-" ) return null;
+    const n = Number(s); return isNaN(n) ? null : Math.round(n);
+  }
+  function parsePay(v, fallback){
+    const s = String(v==null?"":v);
+    if(/未/.test(s)) return "未収";
+    if(/済|完了|入金|paid|✓|✔|TRUE/i.test(s)) return "入金済";
+    return fallback;
+  }
+  const normKey = (s)=> String(s||"").replace(/\s/g,"").toLowerCase();
+
+  function buildSheetRows(){
+    const st = importStudio(); if(!st || !sheetValues) return;
+    const map = readMapping();
+    const hIdx = headerRowIndex();
+    const cell = (row,k)=> map[k]==null ? "" : String(row[map[k]]==null?"":row[map[k]]).trim();
+    const ctx = { year:null };
+    const rows = [];
+    for(let r=hIdx+1; r<sheetValues.length; r++){
+      const row = sheetValues[r] || [];
+      if(!Object.values(map).some(i=> String(row[i]==null?"":row[i]).trim())) continue; // blank row
+      const date = parseDateCell(cell(row,"date"), ctx);
+      const times = parseTimes(cell(row,"start"));
+      const endTimes = parseTimes(cell(row,"end"));
+      const startTime = times[0] || "";
+      const endTime = endTimes[0] || times[1] || "";
+      const customerName = cell(row,"customer");
+      const payRaw = cell(row,"pay");
+      rows.push({
+        srcLabel: `${r+1}行目`,
+        date, startTime, endTime, customerName,
+        contact: cell(row,"contact"), sns: cell(row,"sns"), workTitle: cell(row,"work"),
+        planName: cell(row,"plan"), total: parseAmount(cell(row,"total")),
+        payRaw, notes: cell(row,"notes"),
+        error: !date ? "日付を読み取れません" : (!customerName ? "お客様名が空です" : ""),
+        importKey: `sheet:${st.sheetId}:${date}|${startTime}|${normKey(customerName)}`,
+      });
+    }
+    finalizeRows(rows);
+  }
+
+  // ---------- calendar ----------
+  $("btnLoadCalendar").addEventListener("click", async ()=>{
+    const st = importStudio(); if(!st || !st.calendarId) return;
+    const from = $("iCalFrom").value, to = $("iCalTo").value;
+    if(!from || !to || from>to){ toast("期間を正しく指定してください"); return; }
+    const btn = $("btnLoadCalendar");
+    btn.disabled = true; btn.textContent = "読み込み中…";
+    try{
+      const timeMin = new Date(from+"T00:00:00").toISOString();
+      const timeMax = new Date(to+"T23:59:59").toISOString();
+      let items = [], pageToken = "";
+      do{
+        const q = new URLSearchParams({ timeMin, timeMax, singleEvents:"true", orderBy:"startTime", maxResults:"2500" });
+        if(pageToken) q.set("pageToken", pageToken);
+        const data = await googleGet(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(st.calendarId)}/events?${q}`);
+        items = items.concat(data.items||[]);
+        pageToken = data.nextPageToken || "";
+      } while(pageToken);
+      const rows = items.filter(ev=> ev.status!=="cancelled" && ev.start && ev.start.dateTime).map(ev=>{
+        const s = new Date(ev.start.dateTime), e = new Date((ev.end && ev.end.dateTime) || ev.start.dateTime);
+        const customerName = String(ev.summary||"").trim();
+        return {
+          srcLabel: "予定",
+          date: localDateStr(s), startTime: localTimeStr(s), endTime: localTimeStr(e), customerName,
+          contact:"", sns:"", workTitle:"", planName:"", total:null, payRaw:"",
+          notes: String(ev.description||"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,500),
+          error: customerName ? "" : "タイトルが空です",
+          importKey: `cal:${st.calendarId}:${ev.id}`,
+        };
+      });
+      if(!rows.length) toast("この期間に時間指定の予定はありませんでした");
+      finalizeRows(rows);
+    }catch(e){ toast(e.message); }
+    finally{ btn.disabled = false; btn.textContent = "予定を読み込む"; }
+  });
+
+  // ---------- shared preview / import ----------
+  function finalizeRows(rows){
+    const st = importStudio();
+    const existingKeys = new Set(reservations.filter(r=>r.importKey).map(r=>r.importKey));
+    const slotTaken = new Set(reservations.filter(r=>r.studioId===st.id).map(r=>`${r.date}|${r.startTime||""}`));
+    const seen = new Set();
+    rows.forEach(r=>{
+      if(r.error) r.status = "error";
+      else if(existingKeys.has(r.importKey)) r.status = "imported";
+      else if(seen.has(r.importKey)) r.status = "dup";
+      else if(slotTaken.has(`${r.date}|${r.startTime}`)) r.status = "conflict";
+      else r.status = "new";
+      seen.add(r.importKey);
+      r.checked = r.status==="new";
+    });
+    importRows = rows;
+    renderImportPreview();
+  }
+  const STATUS_PILL = {
+    new:      `<span class="pill good">新規</span>`,
+    conflict: `<span class="pill warn">同時刻に予約あり</span>`,
+    imported: `<span class="pill muted">取込済</span>`,
+    dup:      `<span class="pill muted">重複行</span>`,
+    error:    `<span class="pill warn">読み取れない</span>`,
+  };
+  function renderImportPreview(){
+    const onlyNew = $("iOnlyNew").checked;
+    const defPay = $("iDefaultPay").value;
+    const shown = importRows.map((r,i)=>({r,i})).filter(({r})=> !onlyNew || r.status==="new" || r.status==="conflict");
+    $("iPreviewBody").innerHTML = shown.length ? shown.map(({r,i})=>{
+      const selectable = r.status==="new" || r.status==="conflict";
+      const pay = r.payRaw ? parsePay(r.payRaw, defPay) : defPay;
+      return `<tr class="${selectable?"":"skip"}">
+        <td>${selectable?`<input type="checkbox" data-row="${i}" style="width:auto;" ${r.checked?"checked":""}>`:""}</td>
+        <td>${STATUS_PILL[r.status]}${r.error?`<div class="hint">${escapeHtml(r.srcLabel)}: ${escapeHtml(r.error)}</div>`:""}</td>
+        <td>${escapeHtml(r.date||"-")}</td>
+        <td>${escapeHtml(r.startTime||"")}${r.endTime?"〜"+escapeHtml(r.endTime):""}</td>
+        <td>${escapeHtml(r.customerName||"")}${r.planName?`<div class="hint">${escapeHtml(r.planName)}</div>`:""}</td>
+        <td class="num">${r.total!=null?yen(r.total):"-"}<div class="hint">${pay}</div></td>
+        <td class="muted" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(r.notes||"")}</td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="7" class="empty" style="padding:24px;">表示できる行がありません</td></tr>`;
+    $("iPreviewBody").querySelectorAll("input[data-row]").forEach(cb=>{
+      cb.addEventListener("change", ()=>{ importRows[Number(cb.dataset.row)].checked = cb.checked; updateImportSummary(); });
+    });
+    $("iPreviewWrap").hidden = false;
+    updateImportSummary();
+  }
+  function updateImportSummary(){
+    const c = (st)=> importRows.filter(r=>r.status===st).length;
+    const sel = importRows.filter(r=>r.checked).length;
+    $("iSummary").textContent = `全${importRows.length}行 ・ 新規 ${c("new")} ・ 同時刻に予約あり ${c("conflict")} ・ 取込済 ${c("imported")+c("dup")} ・ 読み取れない ${c("error")}`;
+    $("btnRunImport").textContent = `選択した ${sel} 件を取り込む`;
+    $("btnRunImport").disabled = sel===0;
+    const selectable = importRows.filter(r=>r.status==="new"||r.status==="conflict");
+    $("iCheckAll").checked = selectable.length>0 && selectable.every(r=>r.checked);
+  }
+  $("iOnlyNew").addEventListener("change", renderImportPreview);
+  $("iDefaultPay").addEventListener("change", renderImportPreview);
+  $("iCheckAll").addEventListener("change", ()=>{
+    const on = $("iCheckAll").checked;
+    importRows.forEach(r=>{ if(r.status==="new"||r.status==="conflict") r.checked = on; });
+    renderImportPreview();
+  });
+
+  $("btnRunImport").addEventListener("click", async ()=>{
+    const st = importStudio(); if(!st) return;
+    const picked = importRows.filter(r=>r.checked);
+    if(!picked.length) return;
+    if(!confirm(`${st.name} に ${picked.length} 件の予約を取り込みます。よろしいですか？`)) return;
+    const btn = $("btnRunImport"); btn.disabled = true; btn.textContent = "取り込み中…";
+    const now = new Date().toISOString();
+    const defPay = $("iDefaultPay").value;
+    try{
+      for(let i=0; i<picked.length; i+=400){
+        const batch = db.batch();
+        picked.slice(i,i+400).forEach(r=>{
+          const plan = r.planName ? (st.plans||[]).find(p=> normKey(p.name)===normKey(r.planName)) : null;
+          const total = r.total!=null ? r.total : (plan ? plan.price : 0);
+          batch.set(db.collection("reservations").doc(), {
+            studioId: st.id, studioName: st.name,
+            date: r.date, isHoliday: false, startTime: r.startTime, endTime: r.endTime,
+            planId: plan? plan.id : "", planName: plan? plan.name : r.planName, planPrice: plan? plan.price : 0,
+            optionIds: [], optionsTotal: 0, extensionHours: 0, extensionFee: 0,
+            couponCode: "", couponDiscount: 0, subtotal: total, total,
+            customerName: r.customerName, contact: r.contact, sns: r.sns, workTitle: r.workTitle,
+            paymentMethod: "銀行振込", paymentStatus: r.payRaw ? parsePay(r.payRaw, defPay) : defPay,
+            notes: r.notes,
+            importSource: importSource, importKey: r.importKey, importedAt: now,
+            createdAt: now, updatedAt: now,
+          });
+        });
+        await batch.commit();
+      }
+      const patch = importSource==="sheet"
+        ? { lastSheetImportAt: now, sheetTab: $("iSheetTab").value, sheetMapping: {
+              tab: $("iSheetTab").value, headerRow: headerRowIndex()+1,
+              cols: Object.fromEntries(Object.entries(readMapping()).map(([k,i])=>[k, currentHeaders()[i]])) } }
+        : { lastCalendarImportAt: now };
+      await db.collection("studios").doc(st.id).update(patch);
+      toast(`${picked.length} 件を取り込みました`);
+      picked.forEach(r=>{ r.status = "imported"; r.checked = false; });
+      renderImportPreview();
+    }catch(e){ toast("取り込みに失敗しました: "+(e&&e.message||e)); }
+    finally{ updateImportSummary(); }
   });
 
   // =====================================================================
