@@ -84,6 +84,15 @@
   .pagehead h1{ font-size:1.4rem; font-weight:800; margin:0; }
   .pagehead .sub{ color:var(--text-dim); font-size:.85rem; }
 
+  #globalHeader{
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px 20px; margin-bottom:22px; flex-wrap:wrap;
+  }
+  #globalHeader .gh-stats{ display:flex; gap:28px; flex-wrap:wrap; }
+  #globalHeader .gh-label{ color:var(--text-dim); font-size:.76rem; margin-bottom:2px; }
+  #globalHeader .gh-value{ font-size:1.5rem; font-weight:800; }
+
   .view{ display:none; }
   .view.active{ display:block; }
 
@@ -297,6 +306,8 @@
     #sidebar .foot{ display:none; }
     #main{ padding:18px 16px 50px; }
     .kpis{ grid-template-columns:repeat(2,1fr); }
+    #globalHeader{ flex-direction:column; align-items:stretch !important; gap:14px !important; }
+    #globalHeader .gh-stats{ justify-content:space-between; }
   }
 </style>
 
@@ -352,6 +363,28 @@
   </nav>
 
   <main id="main">
+
+    <!-- ================= GLOBAL HEADER ================= -->
+    <div id="globalHeader">
+      <div class="gh-stats">
+        <div class="gh-stat">
+          <div class="gh-label">全スタジオ売上合計</div>
+          <div class="gh-value" id="ghTotal">-</div>
+        </div>
+        <div class="gh-stat">
+          <div class="gh-label">予約件数</div>
+          <div class="gh-value" id="ghCount">-</div>
+        </div>
+      </div>
+      <div class="field" style="margin:0; min-width:160px;">
+        <label>対象月</label>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <button class="cal-navbtn" id="ghMonthPrev" type="button">‹</button>
+          <input type="month" id="ghMonth" style="flex:1;">
+          <button class="cal-navbtn" id="ghMonthNext" type="button">›</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ================= DASHBOARD ================= -->
     <section class="view active" id="view-dashboard">
@@ -1216,6 +1249,26 @@
     $("dashMonth").value = shiftMonth($("dashMonth").value||curMonth, 1);
     renderDashboard();
   });
+
+  // ---------- global header (all-studio totals, independent month) ----------
+  $("ghMonth").value = curMonth;
+  $("ghMonth").addEventListener("change", renderGlobalHeader);
+  $("ghMonthPrev").addEventListener("click", ()=>{
+    $("ghMonth").value = shiftMonth($("ghMonth").value||curMonth, -1);
+    renderGlobalHeader();
+  });
+  $("ghMonthNext").addEventListener("click", ()=>{
+    $("ghMonth").value = shiftMonth($("ghMonth").value||curMonth, 1);
+    renderGlobalHeader();
+  });
+  function renderGlobalHeader(){
+    const m = $("ghMonth").value || curMonth;
+    const list = reservations.filter(r=>monthStr(r.date)===m);
+    const total = list.reduce((s,r)=>s+(r.total||0),0);
+    $("ghTotal").textContent = yen(total);
+    $("ghCount").textContent = list.length + "件";
+  }
+  renderGlobalHeader();
 
   // =====================================================================
   // DASHBOARD
@@ -2315,14 +2368,18 @@
   const GOOGLE_SCOPES = "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/calendar.readonly";
 
   function parseSheetId(url){
-    const m = String(url||"").match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]{20,})/);
+    const m = String(url||"").trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/([a-zA-Z0-9_-]{20,})/);
     return m ? m[1] : null;
   }
   function sheetGidFromUrl(url){
     const m = String(url||"").match(/[#&?]gid=(\d+)/);
     return m ? Number(m[1]) : null;
   }
-  function sheetOpenUrl(st){ return st.sheetUrl || `https://docs.google.com/spreadsheets/d/${st.sheetId}/edit`; }
+  function sheetOpenUrl(st){
+    // built from the parsed id only — the raw pasted URL is never used as an href
+    const gid = sheetGidFromUrl(st.sheetUrl);
+    return `https://docs.google.com/spreadsheets/d/${encodeURIComponent(st.sheetId)}/edit` + (gid!=null ? `#gid=${gid}` : "");
+  }
   function calendarOpenUrl(id){ return "https://calendar.google.com/calendar/embed?src=" + encodeURIComponent(id); }
   function normalizeCalendarId(v){
     v = String(v||"").trim();
@@ -2392,7 +2449,7 @@
 
   const MAP_FIELDS = [
     {key:"date",     label:"日付",       required:true, kw:["予約日","利用日","撮影日","日付","日程","date"]},
-    {key:"start",    label:"開始時刻 / 時間帯", kw:["開始","時間帯","時刻","時間","start","time"]},
+    {key:"start",    label:"開始時刻 / 時間帯", kw:["開始","時間帯","時刻","時間","start","time"], not:["延長","利用時間","所要"]},
     {key:"end",      label:"終了時刻",   kw:["終了","end"]},
     {key:"customer", label:"お客様名",   required:true, kw:["お客様","お名前","氏名","名前","予約者","顧客","name"]},
     {key:"contact",  label:"連絡先",     kw:["連絡先","メール","mail","電話","tel"]},
@@ -2520,7 +2577,7 @@
     const order = [...MAP_FIELDS].sort((a,b)=> (b.key==="end") - (a.key==="end"));
     order.forEach(f=>{
       for(const kw of f.kw){
-        const idx = norm.findIndex((h,i)=> h && !taken.has(i) && h.includes(kw.toLowerCase()));
+        const idx = norm.findIndex((h,i)=> h && !taken.has(i) && h.includes(kw.toLowerCase()) && !(f.not||[]).some(x=>h.includes(x)));
         if(idx>=0){ out[f.key]=idx; taken.add(idx); return; }
       }
     });
@@ -2533,7 +2590,11 @@
     const saved = st.sheetMapping;
     if(!forceGuess && saved && saved.tab===$("iSheetTab").value && saved.cols){
       // saved mapping is stored by header name so column moves in the sheet don't break it
-      Object.entries(saved.cols).forEach(([k,name])=>{ const i = headers.indexOf(name); if(i>=0) mapping[k]=i; });
+      Object.entries(saved.cols).forEach(([k,c])=>{
+        const name = typeof c==="string" ? c : c.name, idx = typeof c==="string" ? -1 : c.index;
+        if(idx>=0 && idx<headers.length && headers[idx]===name) mapping[k]=idx;       // same place, same header
+        else if(name){ const i = headers.indexOf(name); if(i>=0) mapping[k]=i; }       // column moved
+      });
     } else mapping = guessMapping(headers);
     const opts = (sel)=> `<option value="">(使わない)</option>` + headers.map((h,i)=>`<option value="${i}" ${sel===i?"selected":""}>${colLetter(i)}: ${escapeHtml(h||"(見出しなし)")}</option>`).join("");
     $("iMapping").innerHTML = MAP_FIELDS.map(f=>`<div class="field"><label>${f.label}${f.required?" *":""}</label><select data-map="${f.key}">${opts(mapping[f.key])}</select></div>`).join("");
@@ -2555,12 +2616,27 @@
       const d = new Date(Math.round((Number(s)-25569)*86400000));
       return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth()+1)}-${pad2(d.getUTCDate())}`;
     }
+    const valid = (y,mo,d)=>{ const t = new Date(y, mo-1, d); return t.getFullYear()===y && t.getMonth()===mo-1 && t.getDate()===d; };
     let m = s.match(/(\d{4})\s*[\/\-.年]\s*(\d{1,2})\s*[\/\-.月]\s*(\d{1,2})/);
-    if(m){ ctx.year = Number(m[1]); return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`; }
+    if(m){
+      const y=Number(m[1]), mo=Number(m[2]), d=Number(m[3]);
+      if(!valid(y,mo,d)) return null;
+      ctx.year = y; ctx.lastMonth = mo;
+      return `${y}-${pad2(mo)}-${pad2(d)}`;
+    }
     m = s.match(/(\d{1,2})\s*[\/月]\s*(\d{1,2})/);
     if(m){
-      const y = ctx.year || new Date().getFullYear();
-      return `${y}-${pad2(m[1])}-${pad2(m[2])}`;
+      const mo=Number(m[1]), d=Number(m[2]);
+      let y = ctx.year;
+      if(y==null){
+        // no year anywhere yet: pick whichever year puts the date closest to today
+        const now = new Date(), base = now.getFullYear();
+        y = [base-1, base, base+1].reduce((best,cy)=> Math.abs(new Date(cy,mo-1,d)-now) < Math.abs(new Date(best,mo-1,d)-now) ? cy : best, base);
+      } else if(ctx.lastMonth && mo < ctx.lastMonth-6) y++;   // Dec → Jan going down the sheet
+      else if(ctx.lastMonth && mo > ctx.lastMonth+6) y--;     // sheet sorted newest-first
+      if(!valid(y,mo,d)) return null;
+      ctx.year = y; ctx.lastMonth = mo;
+      return `${y}-${pad2(mo)}-${pad2(d)}`;
     }
     return null;
   }
@@ -2575,14 +2651,17 @@
     return out;
   }
   function parseAmount(v){
-    const s = String(v==null?"":v).replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[^\d.\-]/g,"");
-    if(!s || s==="-" ) return null;
-    const n = Number(s); return isNaN(n) ? null : Math.round(n);
+    const s = String(v==null?"":v).replace(/[０-９．]/g, c=> c==="．" ? "." : String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[,，]/g,"");
+    const nums = s.match(/\d+(?:\.\d+)?\s*万?/g);
+    if(!nums) return { value:null, multiple:false };
+    const first = nums[0];
+    let n = parseFloat(first); if(/万/.test(first)) n *= 10000;
+    return { value: Math.round(n), multiple: nums.length>1 };
   }
   function parsePay(v, fallback){
     const s = String(v==null?"":v);
-    if(/未/.test(s)) return "未収";
-    if(/済|完了|入金|paid|✓|✔|TRUE/i.test(s)) return "入金済";
+    if(/未|待|要|確認中|FALSE|unpaid|×|✗/i.test(s)) return "未収";
+    if(/済|完了|paid|✓|✔|TRUE|○|〇/i.test(s)) return "入金済";
     return fallback;
   }
   const normKey = (s)=> String(s||"").replace(/\s/g,"").toLowerCase();
@@ -2604,11 +2683,13 @@
       const endTime = endTimes[0] || times[1] || "";
       const customerName = cell(row,"customer");
       const payRaw = cell(row,"pay");
+      const amount = parseAmount(cell(row,"total"));
+      const warn = amount.multiple ? "金額欄に数値が複数あります(最初の数値を使用)" : "";
       rows.push({
         srcLabel: `${r+1}行目`,
         date, startTime, endTime, customerName,
         contact: cell(row,"contact"), sns: cell(row,"sns"), workTitle: cell(row,"work"),
-        planName: cell(row,"plan"), total: parseAmount(cell(row,"total")),
+        planName: cell(row,"plan"), total: amount.value, warn,
         payRaw, notes: cell(row,"notes"),
         error: !date ? "日付を読み取れません" : (!customerName ? "お客様名が空です" : ""),
         importKey: `sheet:${st.sheetId}:${date}|${startTime}|${normKey(customerName)}`,
@@ -2657,13 +2738,15 @@
   function finalizeRows(rows){
     const st = importStudio();
     const existingKeys = new Set(reservations.filter(r=>r.importKey).map(r=>r.importKey));
-    const slotTaken = new Set(reservations.filter(r=>r.studioId===st.id).map(r=>`${r.date}|${r.startTime||""}`));
+    const mine = reservations.filter(r=>r.studioId===st.id);
+    const slotTaken = new Set(mine.filter(r=>r.startTime).map(r=>`${r.date}|${r.startTime}`));
+    const nameTaken = new Set(mine.map(r=>`${r.date}|${normKey(r.customerName)}`));
     const seen = new Set();
     rows.forEach(r=>{
       if(r.error) r.status = "error";
       else if(existingKeys.has(r.importKey)) r.status = "imported";
       else if(seen.has(r.importKey)) r.status = "dup";
-      else if(slotTaken.has(`${r.date}|${r.startTime}`)) r.status = "conflict";
+      else if((r.startTime && slotTaken.has(`${r.date}|${r.startTime}`)) || nameTaken.has(`${r.date}|${normKey(r.customerName)}`)) r.status = "conflict";
       else r.status = "new";
       seen.add(r.importKey);
       r.checked = r.status==="new";
@@ -2673,7 +2756,7 @@
   }
   const STATUS_PILL = {
     new:      `<span class="pill good">新規</span>`,
-    conflict: `<span class="pill warn">同時刻に予約あり</span>`,
+    conflict: `<span class="pill warn">既存予約と重複?</span>`,
     imported: `<span class="pill muted">取込済</span>`,
     dup:      `<span class="pill muted">重複行</span>`,
     error:    `<span class="pill warn">読み取れない</span>`,
@@ -2687,7 +2770,7 @@
       const pay = r.payRaw ? parsePay(r.payRaw, defPay) : defPay;
       return `<tr class="${selectable?"":"skip"}">
         <td>${selectable?`<input type="checkbox" data-row="${i}" style="width:auto;" ${r.checked?"checked":""}>`:""}</td>
-        <td>${STATUS_PILL[r.status]}${r.error?`<div class="hint">${escapeHtml(r.srcLabel)}: ${escapeHtml(r.error)}</div>`:""}</td>
+        <td>${STATUS_PILL[r.status]}${(r.error||r.warn)?`<div class="hint">${escapeHtml(r.srcLabel)}: ${escapeHtml(r.error||r.warn)}</div>`:""}</td>
         <td>${escapeHtml(r.date||"-")}</td>
         <td>${escapeHtml(r.startTime||"")}${r.endTime?"〜"+escapeHtml(r.endTime):""}</td>
         <td>${escapeHtml(r.customerName||"")}${r.planName?`<div class="hint">${escapeHtml(r.planName)}</div>`:""}</td>
@@ -2704,7 +2787,7 @@
   function updateImportSummary(){
     const c = (st)=> importRows.filter(r=>r.status===st).length;
     const sel = importRows.filter(r=>r.checked).length;
-    $("iSummary").textContent = `全${importRows.length}行 ・ 新規 ${c("new")} ・ 同時刻に予約あり ${c("conflict")} ・ 取込済 ${c("imported")+c("dup")} ・ 読み取れない ${c("error")}`;
+    $("iSummary").textContent = `全${importRows.length}行 ・ 新規 ${c("new")} ・ 既存予約と重複? ${c("conflict")} ・ 取込済 ${c("imported")+c("dup")} ・ 読み取れない ${c("error")}`;
     $("btnRunImport").textContent = `選択した ${sel} 件を取り込む`;
     $("btnRunImport").disabled = sel===0;
     const selectable = importRows.filter(r=>r.status==="new"||r.status==="conflict");
@@ -2746,18 +2829,21 @@
           });
         });
         await batch.commit();
+        picked.slice(i,i+400).forEach(r=>{ r.status = "imported"; r.checked = false; });
       }
+      toast(`${picked.length} 件を取り込みました`);
       const patch = importSource==="sheet"
         ? { lastSheetImportAt: now, sheetTab: $("iSheetTab").value, sheetMapping: {
               tab: $("iSheetTab").value, headerRow: headerRowIndex()+1,
-              cols: Object.fromEntries(Object.entries(readMapping()).map(([k,i])=>[k, currentHeaders()[i]])) } }
+              cols: Object.fromEntries(Object.entries(readMapping()).map(([k,i])=>[k, {name: currentHeaders()[i], index: i}])) } }
         : { lastCalendarImportAt: now };
-      await db.collection("studios").doc(st.id).update(patch);
-      toast(`${picked.length} 件を取り込みました`);
-      picked.forEach(r=>{ r.status = "imported"; r.checked = false; });
-      renderImportPreview();
-    }catch(e){ toast("取り込みに失敗しました: "+(e&&e.message||e)); }
-    finally{ updateImportSummary(); }
+      try{ await db.collection("studios").doc(st.id).update(patch); }
+      catch(e){ toast("予約は取り込みましたが、列の対応づけの保存に失敗しました"); }
+    }catch(e){
+      const done = picked.filter(r=>r.status==="imported").length;
+      toast(`取り込みが途中で失敗しました(${done}/${picked.length} 件は保存済み): `+(e&&e.message||e));
+    }
+    finally{ renderImportPreview(); }
   });
 
   // =====================================================================
@@ -2857,6 +2943,7 @@
     db.collection("reservations").onSnapshot(snap=>{
       reservations = snap.docs.map(d=>({id:d.id, ...d.data()}));
       renderCurrentView();
+      renderGlobalHeader();
     }, err=>console.error(err));
 
     db.collection("coupons").onSnapshot(snap=>{
