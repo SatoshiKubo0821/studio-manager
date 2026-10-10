@@ -59,6 +59,8 @@
   #sidebar .logo small{ display:block; font-family:"Noto Sans JP",sans-serif; font-weight:500; font-size:.68rem; color:var(--text-dim); letter-spacing:.1em; margin-top:2px; }
 
   .studio-switcher{ margin-bottom:16px; }
+  #sidebar .navrow{ display:flex; flex-direction:column; gap:4px; }
+  .mobile-only{ display:none; }
   .studio-switcher label{ font-size:.68rem; font-weight:700; color:var(--text-dim); letter-spacing:.05em; margin-bottom:4px; display:block; padding:0 2px; }
   .studio-switcher select{ font-weight:700; }
   .studio-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; flex:none; }
@@ -294,13 +296,30 @@
 
   @media (max-width:760px){
     #app{ flex-direction:column; }
-    #sidebar{ width:100%; flex-direction:column; padding:12px 14px; border-right:none; border-bottom:1px solid var(--border); }
-    #sidebar .logo{ padding-bottom:8px; }
-    #sidebar .navrow{ display:flex; overflow-x:auto; gap:4px; }
-    .navbtn{ width:auto; white-space:nowrap; }
+    /* phone: compact header pinned to the top, menu scrolls sideways */
+    #sidebar{ width:100%; flex-direction:column; padding:10px 12px 8px; gap:8px; border-right:none; border-bottom:1px solid var(--border);
+      position:sticky; top:0; z-index:30; box-shadow:0 4px 12px rgba(0,0,0,.12); }
+    #sidebar .logo{ padding:0; font-size:.95rem; display:flex; align-items:baseline; gap:8px; }
+    #sidebar .logo small{ display:inline; margin:0; letter-spacing:.04em; }
+    .studio-switcher{ margin:0; }
+    .studio-switcher label{ display:none; }
+    .studio-switcher select{ padding:7px 10px; font-size:.85rem; }
+    #sidebar .navrow{ flex-direction:row; overflow-x:auto; gap:4px; margin:0 -12px; padding:0 12px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    #sidebar .navrow::-webkit-scrollbar{ display:none; }
+    .navbtn{ width:auto; white-space:nowrap; padding:7px 11px; font-size:.8rem; flex:none; }
+    .navbtn .dot{ display:none; }
     #sidebar .foot{ display:none; }
-    #main{ padding:18px 16px 50px; }
-    .kpis{ grid-template-columns:repeat(2,1fr); }
+    .mobile-only{ display:block; }
+    #main{ padding:16px 14px 40px; min-width:0; }
+    .kpis{ grid-template-columns:repeat(2,1fr); gap:10px; }
+    .kpi{ padding:12px 14px; }
+    .kpi .value{ font-size:1.15rem; }
+    .pagehead{ flex-wrap:wrap; gap:10px; }
+    .pagehead h1{ font-size:1.35rem; }
+    .card .card-head, .card .card-body{ padding-left:14px; padding-right:14px; }
+    td, th{ padding:8px; }
+    [id$="Overlay"]{ padding:12px 8px !important; }
+    [id$="Overlay"] > .card{ max-width:100% !important; }
   }
 </style>
 
@@ -339,7 +358,7 @@
       <select id="studioSwitcher"></select>
     </div>
 
-    <div class="navrow" style="display:flex; flex-direction:column; gap:4px;">
+    <div class="navrow">
       <button class="navbtn active" data-view="dashboard"><span class="dot"></span>ダッシュボード</button>
       <button class="navbtn" data-view="reservations"><span class="dot"></span>予約管理</button>
       <button class="navbtn" data-view="reconcile"><span class="dot"></span>入金消込</button>
@@ -353,7 +372,7 @@
     </div>
     <div class="foot">
       <div id="currentUserLabel" style="font-weight:700; color:var(--text); margin-bottom:6px; word-break:break-all;"></div>
-      複数スタジオ対応<br>予約・売上管理ツール<br>
+      <span class="foot-desc">複数スタジオ対応<br>予約・売上管理ツール<br></span>
       <button class="btn sm ghost" id="btnLockNow" style="margin-top:8px; width:100%;">ログアウト</button>
     </div>
   </nav>
@@ -849,6 +868,10 @@
       </div>
     </section>
 
+    <div class="mobile-only" style="text-align:center; margin-top:28px;">
+      <div class="muted" id="mobileUserLabel" style="font-size:.75rem; margin-bottom:6px; word-break:break-all;"></div>
+      <button class="btn sm ghost" type="button" onclick="document.getElementById('btnLockNow').click()">ログアウト</button>
+    </div>
     <footer class="trademark app-trademark">© <span class="cy"></span> Metaland Tokyo株式会社 All rights reserved. ・ Studio Manager by Metaland Tokyo</footer>
   </main>
 </div>
@@ -4000,6 +4023,7 @@
     currentUserEmail = email;
     const roleSuffix = myRole ? `(${ROLE_LABEL[myRole]||myRole})` : "";
     $("currentUserLabel").textContent = "ログイン中: " + email + " " + roleSuffix;
+    $("mobileUserLabel").textContent = "ログイン中: " + email + " " + roleSuffix;
     $("lockScreen").style.display = "none";
     $("app").classList.remove("locked");
     applyRoleUI();
