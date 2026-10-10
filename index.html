@@ -783,6 +783,11 @@
         <div class="field"><label>クーポンコード</label><input type="text" id="fCoupon" placeholder="任意"></div>
       </div>
       <div class="totalbox" id="totalBox"></div>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap;">
+        <label class="checkrow" style="margin:0;"><input type="checkbox" id="fManualOn" style="width:auto;">金額を手入力する</label>
+        <input type="number" id="fManualTotal" min="0" step="1" placeholder="合計金額(税込)" style="max-width:180px;" disabled>
+        <span class="hint" style="margin:0;">取り込んだ予約や個別の値引きなど、プラン計算と違う金額のとき</span>
+      </div>
 
       <div class="row2" style="margin-top:14px;">
         <div class="field"><label>お客様名</label><input type="text" id="fName"></div>
@@ -1720,9 +1725,11 @@
     const plans = st? st.plans : [];
     const sel = $("fPlan");
     sel.innerHTML = plans.length
-      ? plans.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (${yen(p.price)})</option>`).join("")
+      ? `<option value="">(プランなし)</option>` + plans.map(p=>`<option value="${p.id}">${escapeHtml(p.name)} (${yen(p.price)})</option>`).join("")
       : `<option value="">(このスタジオにはプランが未設定です)</option>`;
-    if(selectedId) sel.value = selectedId;
+    // undefined = new booking → first plan; "" = existing booking without a plan → keep it plan-less
+    if(selectedId!==undefined && selectedId!==null) sel.value = selectedId;
+    else if(plans.length) sel.value = plans[0].id;
   }
   function populateOptionChecks(selectedIds){
     selectedIds = selectedIds || [];
@@ -1770,7 +1777,10 @@
         } else { couponNote = "(期限切れ)"; }
       } else if(code){ couponNote = "(無効なコード)"; }
     }
-    const total = Math.max(0, subtotal-discount);
+    const calcTotal = Math.max(0, subtotal-discount);
+    // a manually entered amount (e.g. imported bookings with options/discounts the plan math can't see) wins
+    const manual = $("fManualOn").checked && $("fManualTotal").value!=="";
+    const total = manual ? Math.max(0, Math.round(Number($("fManualTotal").value)||0)) : calcTotal;
 
     $("totalBox").innerHTML = `
       <div class="line"><span>プラン料金</span><span>${yen(planPrice)}</span></div>
@@ -1778,11 +1788,13 @@
       <div class="line"><span>延長料金</span><span>${yen(extFee)}</span></div>
       ${discount>0?`<div class="line discount"><span>クーポン割引 ${couponNote}</span><span>-${yen(discount)}</span></div>`:
         (couponNote?`<div class="line"><span style="color:var(--text-dim)">${couponNote}</span><span></span></div>`:"")}
-      <div class="line total"><span>合計</span><span>${yen(total)}</span></div>
+      ${manual ? `<div class="line" style="color:var(--text-dim)"><span>プランからの計算</span><span>${yen(calcTotal)}</span></div>` : ""}
+      <div class="line total"><span>合計${manual?"(手入力)":""}</span><span>${yen(total)}</span></div>
     `;
     return {studioId: $("fStudio").value, studioName: st? st.name:"",
       planId:plan?plan.id:"", planName:plan?plan.name:"", planPrice, optionIds:optIds, optionsTotal,
-      extensionHours:extHours, extensionFee:extFee, couponCode:code, couponDiscount:discount, subtotal, total};
+      extensionHours:extHours, extensionFee:extFee, couponCode:code, couponDiscount:discount,
+      subtotal: manual ? total : subtotal, total, manualTotal: manual};
   }
 
   $("fStudio").addEventListener("change", ()=>{
@@ -1793,6 +1805,12 @@
     $(id).addEventListener("change", computeTotals);
   });
   $("fOptions").addEventListener("change", computeTotals);
+  $("fManualOn").addEventListener("change", ()=>{
+    $("fManualTotal").disabled = !$("fManualOn").checked;
+    if($("fManualOn").checked && $("fManualTotal").value==="") $("fManualTotal").value = computeTotals().total;
+    computeTotals();
+  });
+  $("fManualTotal").addEventListener("input", computeTotals);
 
   function openReservationModal(id, presetDate, prefill){
     if(!studios.length){ toast("先に「スタジオ管理」からスタジオを登録してください"); return; }
@@ -1821,6 +1839,14 @@
     $("fPayStatus").value = r? (r.paymentStatus||"未収") : "未収";
     $("fNotes").value = r? (r.notes||"") : (prefill.parsedFromMail ? "問い合わせメールの自動解析から作成(内容を確認してください)" : "");
 
+    // keep the stored amount when it can't be reproduced from plan/options (imported or hand-adjusted)
+    $("fManualOn").checked = false; $("fManualTotal").value = ""; $("fManualTotal").disabled = true;
+    if(r){
+      const calcTotal = computeTotals().total;
+      if(r.manualTotal || (typeof r.total==="number" && r.total!==calcTotal)){
+        $("fManualOn").checked = true; $("fManualTotal").disabled = false; $("fManualTotal").value = r.total;
+      }
+    }
     computeTotals();
     $("modalOverlay").style.display = "flex";
     if(prefill.parsedFromMail){
@@ -1838,15 +1864,19 @@
     if(!$("fDate").value || !$("fName").value.trim()){ toast("予約日とお客様名は必須です"); return; }
     if(!$("fStudio").value){ toast("スタジオを選択してください"); return; }
     const calc = computeTotals();
+    const editingRes = editingReservationId ? reservations.find(x=>x.id===editingReservationId) : null;
     const data = {
       studioId: calc.studioId, studioName: calc.studioName,
       date: $("fDate").value, isHoliday: $("fHoliday").checked,
       startTime: $("fStart").value, endTime: $("fEnd").value,
-      planId: calc.planId, planName: calc.planName, planPrice: calc.planPrice,
+      planId: calc.planId,
+      // imported bookings can carry a plan name that isn't one of the studio's plans — keep it
+      planName: calc.planId ? calc.planName : (editingRes && !editingRes.planId ? (editingRes.planName||"") : calc.planName),
+      planPrice: calc.planPrice,
       optionIds: calc.optionIds, optionsTotal: calc.optionsTotal,
       extensionHours: calc.extensionHours, extensionFee: calc.extensionFee,
       couponCode: calc.couponCode, couponDiscount: calc.couponDiscount,
-      subtotal: calc.subtotal, total: calc.total,
+      subtotal: calc.subtotal, total: calc.total, manualTotal: !!calc.manualTotal,
       customerName: $("fName").value.trim(), contact: $("fContact").value.trim(),
       sns: $("fSns").value.trim(), workTitle: $("fWork").value.trim(),
       paymentMethod: $("fPayMethod").value, paymentStatus: $("fPayStatus").value,
