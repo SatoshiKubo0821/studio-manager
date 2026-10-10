@@ -2917,7 +2917,10 @@
         if(d.options && d.options.length) seed.options = d.options;
         if(typeof d.extensionFeePerHour === "number") seed.extensionFeePerHour = d.extensionFeePerHour;
       }
-      const ref = await db.collection("studios").add(seed);
+      // fixed id: two tabs/devices seeding at the same moment write the same doc
+      // instead of creating duplicate studios
+      const ref = db.collection("studios").doc("default-studio");
+      await ref.set(seed);
       // backfill any studio-less reservations/coupons to this studio
       const resSnap = await db.collection("reservations").get();
       const updates = [];
