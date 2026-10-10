@@ -2522,8 +2522,9 @@
         ...(pages.price ? priceCandidates(htmlToLines(pages.price.content.rendered), "price") : []),
         ...(pages.option ? priceCandidates(htmlToLines(pages.option.content.rendered), "option") : []),
       ];
-      const addrLine = pages.access ? htmlToLines(pages.access.content.rendered).find(l=>/〒\s*\d{3}-?\d{4}/.test(l)) : "";
-      webAddress = addrLine ? addrLine.replace(/^.*?(〒)/,"$1").replace(/^(住所|所在地)\s*[:：]?\s*/,"").trim() : "";
+      const accessLines = pages.access ? htmlToLines(pages.access.content.rendered) : [];
+      const addrLine = accessLines.find(l=>/〒\s*\d{3}-?\d{4}/.test(l)) || accessLines.find(l=>/^(住所|所在地)\s*[:：;；]/.test(l)) || "";
+      webAddress = addrLine ? addrLine.replace(/^.*?(〒)/,"$1").replace(/^(住所|所在地)\s*[:：;；]?\s*/,"").trim() : "";
       $("webImportStatus").hidden = true;
       $("webImportBody").hidden = false;
       $("webAddrRow").hidden = !webAddress || webAddress===st.address;
