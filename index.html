@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>Studio Manager</title>
+<title>Studio Manager by Metaland Tokyo</title>
 <meta charset="UTF-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap">
@@ -267,6 +267,10 @@
   .lockcard .lock-emblem svg{ width:24px; height:24px; stroke:#fff; }
   .lockcard .logo{ font-size:1.25rem; font-weight:800; margin-bottom:4px; }
   .lockcard .logo span{ color:var(--accent); }
+  .lockcard .lock-by{ font-size:.72rem; color:var(--text-dim); letter-spacing:.08em; margin:-2px 0 10px; }
+  .trademark{ font-size:.68rem; color:var(--text-dim); line-height:1.6; text-align:center; }
+  .lockcard .trademark{ margin-top:14px; }
+  .app-trademark{ margin-top:40px; padding-top:14px; border-top:1px solid var(--border); }
   .lockcard .sub{ font-size:.82rem; color:var(--text-dim); margin-bottom:18px; min-height:1.4em; transition:opacity .15s; }
   .lockcard .field{ text-align:left; }
   .lockcard input:disabled, .lockcard button:disabled{ opacity:.55; cursor:not-allowed; }
@@ -304,6 +308,7 @@
   <div class="lockcard" id="lockCard">
     <div class="lock-emblem"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="11" rx="2"></rect><path d="M7 10V7a5 5 0 0 1 10 0v3"></path></svg></div>
     <div class="logo brand">Studio<span>Manager</span></div>
+    <div class="lock-by">by Metaland Tokyo</div>
     <div class="sub" id="lockSub">メールアドレスとパスワードでログインしてください</div>
 
     <div id="loginFormWrap">
@@ -321,12 +326,13 @@
     </div>
 
     <div class="lockfoot">複数スタジオ対応 予約・売上管理ツール</div>
+    <div class="trademark">© <span class="cy"></span> Metaland Tokyo株式会社 All rights reserved.<br>Studio Manager は Metaland Tokyo株式会社 のサービスです。</div>
   </div>
 </div>
 
 <div id="app" class="locked">
   <nav id="sidebar">
-    <div class="logo brand">Studio<span>Manager</span><small>MULTI-STUDIO EDITION</small></div>
+    <div class="logo brand">Studio<span>Manager</span><small>by Metaland Tokyo</small></div>
 
     <div class="studio-switcher">
       <label>表示中のスタジオ</label>
@@ -737,6 +743,7 @@
       </div>
     </section>
 
+    <footer class="trademark app-trademark">© <span class="cy"></span> Metaland Tokyo株式会社 All rights reserved. ・ Studio Manager by Metaland Tokyo</footer>
   </main>
 </div>
 
@@ -943,6 +950,12 @@
       </div>
       <div class="field"><label>メモ</label><input type="text" id="sNote"></div>
 
+      <div class="field">
+        <label>公式サイトのURL(任意)</label>
+        <input type="url" id="sWebsiteUrl" placeholder="https://example.com/">
+        <div class="hint">登録すると、スタジオ管理の「サイトから料金を読み込む」で料金・オプション・所在地をサイトから取り込めます(WordPressのサイトに対応)。</div>
+      </div>
+
       <div class="subhead">Google連携(任意)</div>
       <div class="field">
         <label>予約スプレッドシートのURL</label>
@@ -1041,6 +1054,33 @@
   </div>
 </div>
 
+<!-- ================= WEBSITE PRICE IMPORT MODAL ================= -->
+<div id="webImportOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:45; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:960px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="webImportTitle">サイトから料金を読み込む</h2>
+      <span class="icon-x" id="webImportClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="muted" id="webImportStatus" style="font-size:.85rem;">読み込み中…</div>
+      <div id="webImportBody" hidden>
+        <div class="hint" style="margin-bottom:10px;">サイトの料金・オプションページから、金額が書かれた行を拾っています。種類・名前・金額(税込)を確認して、反映する行にチェックを入れてください。税別表記は税込(×1.1)に換算済みです。同じ名前のプラン・オプションは金額を更新し、ないものは追加します(既存のプランは削除しません)。</div>
+        <label class="checkrow" id="webAddrRow" hidden style="margin-bottom:10px;"><input type="checkbox" id="webAddrOn" style="width:auto;" checked><span>所在地を更新: <strong id="webAddrText"></strong></span></label>
+        <div class="tablewrap" style="max-height:440px; overflow-y:auto; border:1px solid var(--border); border-radius:10px;">
+          <table>
+            <thead><tr><th></th><th>種類</th><th>名前</th><th class="num">金額(税込)</th><th>サイトの記載</th></tr></thead>
+            <tbody id="webCandBody"></tbody>
+          </table>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; gap:10px; flex-wrap:wrap;">
+          <span class="muted" id="webSummary" style="font-size:.8rem;"></span>
+          <button class="btn primary" id="btnWebApply" type="button">チェックした内容を反映</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ================= APP CONFIRM MODAL ================= -->
 <!-- window.confirm() is silently answered "cancel" in some embedded browsers, so the app asks with its own dialog -->
 <div id="appConfirmOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.6); z-index:70; align-items:flex-start; justify-content:center; overflow-y:auto; padding:80px 16px;">
@@ -1105,6 +1145,7 @@
   const todayStr = ()=> new Date().toISOString().slice(0,10);
   const monthStr = (d)=> (d||"").slice(0,7);
   const ALL = "__ALL__";
+  document.querySelectorAll(".trademark .cy").forEach(el=> el.textContent = new Date().getFullYear());
 
   function toast(msg){
     const t=$("toast"); t.textContent=msg; t.classList.add("show");
@@ -2286,6 +2327,7 @@
       const links = [];
       if(s.sheetId) links.push(`<a href="${escapeHtml(sheetOpenUrl(s))}" target="_blank" rel="noopener">スプレッドシートを開く ↗</a>`);
       if(s.calendarId) links.push(`<a href="${escapeHtml(calendarOpenUrl(s.calendarId))}" target="_blank" rel="noopener">カレンダーを開く ↗</a>`);
+      if(s.websiteUrl) links.push(`<a href="${escapeHtml(s.websiteUrl)}" target="_blank" rel="noopener">公式サイト ↗</a>`);
       const pills = [
         s.sheetId ? `<span class="pill good">シート連携</span>` : `<span class="pill muted">シート未登録</span>`,
         s.calendarId ? `<span class="pill good">カレンダー連携</span>` : `<span class="pill muted">カレンダー未登録</span>`,
@@ -2300,6 +2342,7 @@
           ${links.length?`<div class="linkrow">${links.join("")}</div>`:""}
         </div>
         <div class="actions">
+          ${s.websiteUrl?`<button class="btn sm" data-web-studio="${s.id}">サイトから料金を読み込む</button>`:""}
           ${(s.sheetId||s.calendarId)?`<button class="btn sm" data-import-studio="${s.id}">取り込み</button>`:""}
           <button class="btn sm ghost" data-edit-studio="${s.id}">編集</button>
         </div>
@@ -2310,6 +2353,9 @@
     });
     wrap.querySelectorAll("[data-import-studio]").forEach(b=>{
       b.addEventListener("click", ()=>openImportModal(b.dataset.importStudio));
+    });
+    wrap.querySelectorAll("[data-web-studio]").forEach(b=>{
+      b.addEventListener("click", ()=>openWebImport(b.dataset.webStudio));
     });
   }
 
@@ -2325,6 +2371,7 @@
     $("sNote").value = s? (s.note||"") : "";
     $("sSheetUrl").value = s? (s.sheetUrl||"") : "";
     $("sCalendarId").value = s? (s.calendarId||"") : "";
+    $("sWebsiteUrl").value = s? (s.websiteUrl||"") : "";
     $("studioModalOverlay").style.display = "flex";
   }
   function closeStudioModal(){ $("studioModalOverlay").style.display="none"; }
@@ -2340,7 +2387,9 @@
     const sheetId = parseSheetId(sheetUrl);
     if(sheetUrl && !sheetId){ toast("スプレッドシートのURLを確認してください(docs.google.com/spreadsheets/d/… の形式)"); return; }
     const calendarId = normalizeCalendarId($("sCalendarId").value);
-    const googleFields = { sheetUrl, sheetId: sheetId||"", calendarId };
+    const websiteUrl = normalizeSiteUrl($("sWebsiteUrl").value);
+    if($("sWebsiteUrl").value.trim() && !websiteUrl){ toast("公式サイトのURLを確認してください(https:// から始まるURL)"); return; }
+    const googleFields = { sheetUrl, sheetId: sheetId||"", calendarId, websiteUrl };
     // a different sheet means the saved tab/column mapping no longer applies
     const prev = editingStudioId ? getStudio(editingStudioId) : null;
     if(prev && (prev.sheetId||"") !== googleFields.sheetId){ googleFields.sheetTab = ""; googleFields.sheetMapping = null; }
@@ -2365,6 +2414,153 @@
     if(!await appConfirm(msg, {okLabel:"削除する", danger:true})) return;
     await deleteStudio(editingStudioId);
     closeStudioModal();
+  });
+
+  // =====================================================================
+  // WEBSITE PRICE IMPORT (WordPress REST API: price / option / access pages)
+  // =====================================================================
+  function normalizeSiteUrl(v){
+    v = String(v||"").trim(); if(!v) return "";
+    try{ const u = new URL(/^https?:\/\//.test(v) ? v : "https://"+v); if(!/^https?:$/.test(u.protocol)) return ""; return u.origin + "/"; }
+    catch(e){ return ""; }
+  }
+  const htmlToLines = (html)=>{
+    const div = document.createElement("div");
+    div.innerHTML = String(html||"").replace(/<(br|\/p|\/li|\/tr|\/h\d|\/div|\/td|\/th|\/dt|\/dd)[^>]*>/gi, "\n");
+    return div.textContent.normalize("NFKC").split("\n").map(x=>x.replace(/\s+/g," ").trim()).filter(Boolean);
+  };
+  // amount → tax-included yen. "2,800円/時間(税込3,080円/時間)" → 3080, "¥3,300/h(税別)" → 3630
+  function lineAmount(line){
+    const inc = line.match(/税込\s*[¥￥]?\s*([\d,]+)\s*円?/);
+    if(inc) return Number(inc[1].replace(/,/g,""));
+    const m = line.match(/[¥￥]\s*([\d,]{3,})|([\d,]{3,})\s*円/);
+    if(!m) return null;
+    const n = Number((m[1]||m[2]).replace(/,/g,""));
+    if(!n) return null;
+    return /税別|税抜/.test(line) ? Math.round(n*1.1) : n;
+  }
+  const lineUnit = (line)=>{ const m = line.match(/\/\s*(h|時間|日|名|人|\d+時間)/); return m ? ({h:"時間"}[m[1]]||m[1]) : ""; };
+  const isPriceOnly = (line)=> !line.replace(/[¥￥\d,円()()税込別抜\/hHー\-~〜:：…・*※\s時間日名人以上より]|[(（][^)）]*[)）]/g,"").trim();
+  function priceCandidates(lines, page){
+    const out = [];
+    lines.forEach((line, i)=>{
+      const amount = lineAmount(line); if(amount==null) return;
+      if(/例|【例】|合計|小計|=|=/.test(line)) return;          // worked examples, not prices
+      let name = line.replace(/[¥￥]?\s*[\d,]{3,}\s*円?.*$/,"").replace(/[…:：・\-—–]+$/,"").trim();
+      if(isPriceOnly(line) || name.length<2){
+        // price sits on its own line: name it from the closest preceding text lines (skip time ranges)
+        const prev = [];
+        for(let k=i-1; k>=0 && prev.length<2; k--){
+          const l = lines[k];
+          if(lineAmount(l)!=null) break;
+          if(/^\d{1,2}[:：]\d{2}\s*[-–〜~]/.test(l) || /^※/.test(l) || l.length>40) continue;
+          prev.unshift(l);
+        }
+        name = prev.join(" ").replace(/\s*\(\s*/g,"(").replace(/\s*\)\s*/g,")").trim();
+      }
+      if(!name) return;
+      const unit = lineUnit(line);
+      let kind = page==="option" ? "option" : "plan";
+      if(/延長/.test(name+line)) kind = "extension";
+      const skip = /追加\s*1名|1名あたり|\/人|\/名|名ご利用時|直前予約/.test(name+line);
+      out.push({ kind: skip ? "ignore" : kind, name: name.slice(0,60) + (unit && !name.includes(unit) && kind!=="extension" ? `(${unit}あたり)` : ""), amount, src: line.slice(0,80), checked: !skip });
+    });
+    return out;
+  }
+  async function fetchSitePages(site){
+    const pick = async (slugs, titleRe)=>{
+      for(const slug of slugs){
+        const r = await fetch(`${site}wp-json/wp/v2/pages?slug=${encodeURIComponent(slug)}&_fields=slug,title,content,link`);
+        if(!r.ok) throw new Error(`サイトのページを読み込めませんでした (${r.status})`);
+        const j = await r.json(); if(j && j.length) return j[0];
+      }
+      const r = await fetch(`${site}wp-json/wp/v2/pages?per_page=100&_fields=slug,title,content,link`);
+      const j = r.ok ? await r.json() : [];
+      return (j||[]).find(p=>titleRe.test((p.title&&p.title.rendered)||"")) || null;
+    };
+    try{
+      return { price: await pick(["price","prices","plan","ryokin"], /料金|PRICE|プラン/i),
+               option: await pick(["option","options"], /オプション|OPTION/i),
+               access: await pick(["access"], /アクセス|ACCESS/i) };
+    }catch(e){
+      if(e instanceof TypeError) throw new Error("サイトに接続できませんでした。WordPressのサイトでない、または外部からの読み込みが許可されていない可能性があります");
+      throw e;
+    }
+  }
+
+  let webStudioId = null, webCands = [], webAddress = "";
+  async function openWebImport(studioId){
+    const st = getStudio(studioId); if(!st || !st.websiteUrl) return;
+    webStudioId = studioId; webCands = []; webAddress = "";
+    $("webImportTitle").textContent = `サイトから料金を読み込む — ${st.name}`;
+    $("webImportStatus").hidden = false; $("webImportStatus").textContent = `${st.websiteUrl} を読み込み中…`;
+    $("webImportBody").hidden = true;
+    $("webImportOverlay").style.display = "flex";
+    try{
+      const pages = await fetchSitePages(st.websiteUrl);
+      if(!pages.price && !pages.option) throw new Error("料金・オプションのページが見つかりませんでした");
+      webCands = [
+        ...(pages.price ? priceCandidates(htmlToLines(pages.price.content.rendered), "price") : []),
+        ...(pages.option ? priceCandidates(htmlToLines(pages.option.content.rendered), "option") : []),
+      ];
+      const addrLine = pages.access ? htmlToLines(pages.access.content.rendered).find(l=>/〒\s*\d{3}-?\d{4}/.test(l)) : "";
+      webAddress = addrLine ? addrLine.replace(/^.*?(〒)/,"$1").replace(/^(住所|所在地)\s*[:：]?\s*/,"").trim() : "";
+      $("webImportStatus").hidden = true;
+      $("webImportBody").hidden = false;
+      $("webAddrRow").hidden = !webAddress || webAddress===st.address;
+      $("webAddrText").textContent = webAddress;
+      renderWebCands();
+    }catch(e){ $("webImportStatus").textContent = e.message; }
+  }
+  const WEB_KIND = { plan:"プラン", option:"オプション", extension:"延長料金(1時間)", ignore:"使わない" };
+  function renderWebCands(){
+    const st = getStudio(webStudioId);
+    $("webCandBody").innerHTML = webCands.length ? webCands.map((c,i)=>{
+      const existing = c.kind==="plan" ? matchPlan(st, c.name) : c.kind==="option" ? (st.options||[]).find(o=>normKey(o.name)===normKey(c.name)) : null;
+      const note = c.kind==="extension" ? `現在 ${yen(st.extensionFeePerHour||0)}` : existing ? `更新(現在 ${yen(existing.price)})` : (c.kind==="ignore" ? "" : "新規");
+      return `<tr>
+        <td><input type="checkbox" data-wc="${i}" style="width:auto;" ${c.checked?"checked":""}></td>
+        <td><select data-wk="${i}">${Object.entries(WEB_KIND).map(([k,l])=>`<option value="${k}" ${c.kind===k?"selected":""}>${l}</option>`).join("")}</select></td>
+        <td><input type="text" data-wn="${i}" value="${escapeHtml(c.name)}"><div class="hint">${escapeHtml(note)}</div></td>
+        <td class="num"><input type="number" data-wa="${i}" value="${c.amount}" style="max-width:120px;"></td>
+        <td class="muted" style="font-size:.75rem; max-width:260px;">${escapeHtml(c.src)}</td>
+      </tr>`;
+    }).join("") : `<tr><td colspan="5" class="empty" style="padding:24px;">金額の記載が見つかりませんでした</td></tr>`;
+    const sync = ()=>{ $("webSummary").textContent = `${webCands.length} 行中 ${webCands.filter(c=>c.checked && c.kind!=="ignore").length} 行を反映`; };
+    $("webCandBody").querySelectorAll("[data-wc]").forEach(el=>el.addEventListener("change", ()=>{ webCands[+el.dataset.wc].checked = el.checked; sync(); }));
+    $("webCandBody").querySelectorAll("[data-wk]").forEach(el=>el.addEventListener("change", ()=>{ webCands[+el.dataset.wk].kind = el.value; if(el.value==="ignore") webCands[+el.dataset.wk].checked = false; renderWebCands(); }));
+    $("webCandBody").querySelectorAll("[data-wn]").forEach(el=>el.addEventListener("input", ()=>{ webCands[+el.dataset.wn].name = el.value; }));
+    $("webCandBody").querySelectorAll("[data-wa]").forEach(el=>el.addEventListener("input", ()=>{ webCands[+el.dataset.wa].amount = Math.round(Number(el.value)||0); }));
+    sync();
+  }
+  $("webImportClose").addEventListener("click", ()=>{ $("webImportOverlay").style.display = "none"; });
+  $("webImportOverlay").addEventListener("click", (e)=>{ if(e.target.id==="webImportOverlay") $("webImportOverlay").style.display = "none"; });
+  $("btnWebApply").addEventListener("click", async ()=>{
+    const st = getStudio(webStudioId); if(!st) return;
+    const picked = webCands.filter(c=>c.checked && c.kind!=="ignore" && c.name.trim() && c.amount>0);
+    const addr = !$("webAddrRow").hidden && $("webAddrOn").checked ? webAddress : null;
+    if(!picked.length && !addr){ toast("反映する行を選んでください"); return; }
+    if(!await appConfirm(`${st.name} の設定に ${picked.length} 行${addr?"と所在地":""}を反映します。よろしいですか？`, {okLabel:"反映する"})) return;
+    const plans = (st.plans||[]).map(p=>({...p})), options = (st.options||[]).map(o=>({...o}));
+    let ext = null, added = 0, updated = 0;
+    const newId = (pre)=> pre + "_" + Math.random().toString(36).slice(2,8);
+    picked.forEach(c=>{
+      const name = c.name.trim();
+      if(c.kind==="extension"){ if(ext==null) ext = c.amount; return; }
+      if(c.kind==="plan"){
+        const hit = matchPlan({plans}, name);
+        if(hit){ hit.price = c.amount; updated++; } else { plans.push({ id:newId("web"), name, price:c.amount }); added++; }
+      } else {
+        const hit = options.find(o=>normKey(o.name)===normKey(name));
+        if(hit){ hit.price = c.amount; updated++; } else { options.push({ id:newId("webopt"), name, price:c.amount }); added++; }
+      }
+    });
+    const patch = { plans, options, websiteImportedAt: new Date().toISOString() };
+    if(ext!=null) patch.extensionFeePerHour = ext;
+    if(addr) patch.address = addr;
+    await saveStudio(st.id, patch);
+    toast(`反映しました(追加 ${added} ・ 更新 ${updated}${ext!=null?" ・ 延長料金":""}${addr?" ・ 所在地":""})`);
+    $("webImportOverlay").style.display = "none";
   });
 
   // =====================================================================

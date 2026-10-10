@@ -1,4 +1,4 @@
-# Studio Manager
+# Studio Manager by Metaland Tokyo
 
 複数スタジオ対応の予約・売上管理ツール(Metaland Tokyo / Studio VirtuaReal)。
 
@@ -23,6 +23,14 @@
   - Hosting: `studiomanager-5eb1d.web.app`(独自ドメイン `studio.metalandtokyo.xyz` を CNAME で割り当て)
   - Authentication: メールアドレス+パスワード
   - Firestore: データ保存。ロールごとの権限は `firestore.rules` で制御
+
+## 公式サイトから料金を読み込む
+
+スタジオの「編集」で公式サイトのURLを登録すると、スタジオ管理の「サイトから料金を読み込む」で、サイトの料金・オプション・アクセスページ(WordPress の REST API)から金額の記載を拾い、プラン・オプション・延長料金・所在地に反映できます。
+
+- 税別表記は税込(×1.1)に換算して表示します。反映前に種類・名前・金額を確認・修正できます
+- 同じ名前のプラン・オプションは金額を更新し、ないものは追加します。既存のプランは削除しません(過去の予約との紐づけを保つため)
+- 人数ごとの単価(「2名ご利用時 6,000円/名」など)や追加料金の行は、初期状態では「使わない」になります
 
 ## Google連携(スタジオごと)
 
