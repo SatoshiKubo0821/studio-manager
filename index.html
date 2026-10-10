@@ -343,7 +343,7 @@
       <button class="navbtn active" data-view="dashboard"><span class="dot"></span>ダッシュボード</button>
       <button class="navbtn" data-view="reservations"><span class="dot"></span>予約管理</button>
       <button class="navbtn" data-view="reconcile"><span class="dot"></span>入金消込</button>
-      <button class="navbtn" data-view="customers"><span class="dot"></span>顧客名簿</button>
+      <button class="navbtn" data-view="customers"><span class="dot"></span>顧客管理</button>
       <button class="navbtn" data-view="coupons"><span class="dot"></span>クーポン</button>
       <button class="navbtn" data-view="mail"><span class="dot"></span>メール文章作成</button>
       <button class="navbtn" data-view="settings"><span class="dot"></span>料金設定</button>
@@ -543,25 +543,58 @@
     <section class="view" id="view-customers">
       <div class="pagehead">
         <div>
-          <h1>顧客名簿</h1>
+          <h1>顧客管理</h1>
           <div class="sub" id="custScopeLabel">利用いただいたお客様の一覧</div>
         </div>
+        <button class="btn" id="btnCustCsv" type="button">CSV出力</button>
+      </div>
+
+      <div class="kpis" id="custKpis">
+        <div class="kpi accent"><div class="label">顧客数</div><div class="value" id="ckTotal">-</div><div class="hint" id="ckTotalSub"></div></div>
+        <div class="kpi good"><div class="label">リピート率</div><div class="value" id="ckRepeat">-</div><div class="hint">2回以上利用した顧客の割合</div></div>
+        <div class="kpi"><div class="label">リピーター売上比率</div><div class="value" id="ckRepeatRev">-</div></div>
+        <div class="kpi"><div class="label">平均LTV</div><div class="value" id="ckLtv">-</div><div class="hint">1顧客あたり累計売上</div></div>
+        <div class="kpi"><div class="label">平均利用間隔</div><div class="value" id="ckInterval">-</div><div class="hint">リピーターの来店間隔</div></div>
+        <div class="kpi warn"><div class="label">休眠顧客</div><div class="value" id="ckDormant">-</div><div class="hint" id="ckDormantSub"></div></div>
+        <div class="kpi"><div class="label">今月の新規顧客</div><div class="value" id="ckNewThisMonth">-</div></div>
       </div>
 
       <div class="card">
+        <div class="card-head"><h2>月別 新規・リピーターの予約(直近12か月)</h2>
+          <span class="muted" style="font-size:.72rem;"><span style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;"></span> 新規 ・ <span style="display:inline-block;width:10px;height:10px;background:var(--good);border-radius:2px;"></span> リピーター</span>
+        </div>
+        <div class="card-body"><svg class="chart" id="custChart" viewBox="0 0 900 180" preserveAspectRatio="none"></svg></div>
+      </div>
+
+      <div class="card">
+        <div class="card-body" style="padding-bottom:6px;">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <div class="field" style="flex:1; min-width:200px; margin:0;"><label>検索(名前・連絡先・SNS・メモ・タグ)</label><input type="text" id="custSearch" placeholder="例: 坂口 / @xxx / VIP"></div>
+            <div class="field" style="margin:0;"><label>セグメント</label>
+              <select id="custSegment">
+                <option value="all">すべて</option><option value="new">新規(利用1回)</option><option value="repeat">リピーター(2回以上)</option>
+                <option value="dormant">休眠</option><option value="vip">VIP(累計売上 上位10%)</option><option value="multi">複数店舗を利用</option>
+                <option value="caution">要注意</option><option value="tagged">タグあり</option>
+              </select></div>
+            <div class="field" style="margin:0; width:110px;"><label>休眠の基準(日)</label><input type="number" id="custDormantDays" min="1" value="90"></div>
+            <div class="field" style="margin:0;"><label>並び順</label>
+              <select id="custSort"><option value="last">最終利用が新しい順</option><option value="count">利用回数が多い順</option><option value="total">累計売上が多い順</option><option value="since">最終利用から長い順</option><option value="name">名前順</option></select></div>
+          </div>
+          <div class="muted" id="custCount" style="font-size:.75rem; margin-top:8px;"></div>
+        </div>
         <div class="card-body" style="padding:0;">
           <div class="tablewrap">
             <table>
               <thead>
                 <tr>
-                  <th>お客様名</th><th>連絡先</th><th>SNS</th><th id="thCustStudio" hidden>利用スタジオ</th>
-                  <th class="num">利用回数</th><th class="num">累計売上</th><th class="num">平均単価</th><th>最終利用日</th>
+                  <th>お客様名</th><th>連絡先 / SNS</th><th>利用スタジオ</th>
+                  <th class="num">利用回数</th><th class="num">累計売上</th><th class="num">平均単価</th><th>初回利用</th><th>最終利用</th><th class="num">経過日数</th>
                 </tr>
               </thead>
               <tbody id="customersBody"></tbody>
             </table>
           </div>
-          <div class="empty" id="customersEmpty" hidden>該当する顧客はまだいません。</div>
+          <div class="empty" id="customersEmpty" hidden>該当する顧客はいません。</div>
         </div>
       </div>
     </section>
@@ -870,7 +903,7 @@
       </div>
 
       <div class="row2" style="margin-top:14px;">
-        <div class="field"><label>お客様名</label><input type="text" id="fName"></div>
+        <div class="field"><label>お客様名</label><input type="text" id="fName"><div class="hint" id="fNameCaution" style="color:var(--warn); font-weight:700;" hidden></div></div>
         <div class="field"><label>連絡先</label><input type="text" id="fContact"></div>
       </div>
       <div class="row2">
@@ -1153,6 +1186,56 @@
           <span class="muted" id="webSummary" style="font-size:.8rem;"></span>
           <button class="btn primary" id="btnWebApply" type="button">チェックした内容を反映</button>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= CUSTOMER PROFILE MODAL ================= -->
+<div id="custModalOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.5); z-index:44; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
+  <div class="card" style="width:100%; max-width:860px; margin-top:0;">
+    <div class="card-head">
+      <h2 id="custModalTitle">顧客カルテ</h2>
+      <span class="icon-x" id="custModalClose">&times;</span>
+    </div>
+    <div class="card-body">
+      <div class="banner" id="custCautionBanner" hidden></div>
+      <div class="kpis" style="grid-template-columns:repeat(5,1fr); margin-bottom:14px;">
+        <div class="kpi"><div class="label">利用回数</div><div class="value" id="cmCount">-</div></div>
+        <div class="kpi"><div class="label">累計売上</div><div class="value" id="cmTotal">-</div></div>
+        <div class="kpi"><div class="label">平均単価</div><div class="value" id="cmAvg">-</div></div>
+        <div class="kpi"><div class="label">初回利用</div><div class="value" id="cmFirst" style="font-size:1rem;">-</div></div>
+        <div class="kpi"><div class="label">最終利用</div><div class="value" id="cmLast" style="font-size:1rem;">-</div><div class="hint" id="cmSince"></div></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>表示名</label><input type="text" id="cmName"></div>
+        <div class="field"><label>タグ(カンマ区切り)</label><input type="text" id="cmTags" placeholder="例: VIP, 撮影会主催, 法人"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>連絡先(メール・電話)</label><input type="text" id="cmContact"></div>
+        <div class="field"><label>SNS</label><input type="text" id="cmSns" placeholder="@example"></div>
+      </div>
+      <div class="field"><label>メモ</label><textarea id="cmMemo" rows="3" placeholder="好み・注意点・過去の対応など"></textarea></div>
+      <div class="row2">
+        <label class="checkrow" style="margin:0 0 12px;"><input type="checkbox" id="cmCaution" style="width:auto;">要注意顧客にする(予約の登録・取り込み時に警告)</label>
+        <div class="field"><input type="text" id="cmCautionNote" placeholder="要注意の理由・対応"></div>
+      </div>
+      <div style="display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="cmMergeTarget" style="max-width:280px;"><option value="">同一人物の顧客を選んで統合…</option></select>
+          <button class="btn sm" id="btnCustMerge" type="button">統合</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn ghost" id="btnCustCancel" type="button">閉じる</button>
+          <button class="btn primary" id="btnCustSave" type="button">保存</button>
+        </div>
+      </div>
+      <div class="subhead" style="margin-top:0;">予約履歴</div>
+      <div class="tablewrap" style="max-height:320px; overflow-y:auto;">
+        <table>
+          <thead><tr><th>日付</th><th>スタジオ</th><th>時間</th><th>プラン</th><th class="num">金額</th><th>支払</th><th></th></tr></thead>
+          <tbody id="cmHistory"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -1513,7 +1596,7 @@
         <td>${escapeHtml(r.startTime||"")}〜${escapeHtml(r.endTime||"")}</td>
         ${studioCell}
         <td>${escapeHtml(r.planName||"")}</td>
-        <td>${escapeHtml(r.customerName||"")}</td>
+        <td>${cautionInfo(r.customerName)?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}${escapeHtml(r.customerName||"")}</td>
         <td class="num">${yen(r.total)}</td>
         <td>${escapeHtml(r.paymentMethod||"")}</td>
         <td>${statusPill}</td>
@@ -1644,7 +1727,7 @@
       return `<tr data-id="${r.id}">
         <td>${escapeHtml(r.date||"")}</td>
         ${studioCell}
-        <td>${escapeHtml(r.customerName||"")}</td>
+        <td>${cautionInfo(r.customerName)?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}${escapeHtml(r.customerName||"")}</td>
         <td class="num">${yen(r.total)}</td>
         <td><button class="btn sm ghost" data-markpaid="${r.id}">入金済みにする</button></td>
       </tr>`;
@@ -1677,51 +1760,223 @@
   });
 
   // ---- customer registry ----
-  function renderCustomersList(){
-    $("thCustStudio").hidden = currentStudioId!==ALL;
-    $("custScopeLabel").textContent = currentStudioId===ALL
-      ? "全スタジオの利用顧客一覧" : studioName(currentStudioId) + " の利用顧客一覧";
-
-    const scoped = currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
-    const groups = new Map();
-    scoped.forEach(r=>{
-      const name = (r.customerName||"").trim() || "(名前未入力)";
-      const contact = (r.contact||"").trim();
-      const key = name + "___" + contact;
-      if(!groups.has(key)){
-        groups.set(key, {
-          name, contact, sns: r.sns||"", studioIds: new Set(),
-          count:0, total:0, lastDate:""
-        });
-      }
-      const g = groups.get(key);
-      g.studioIds.add(r.studioId);
-      g.count += 1;
-      g.total += Number(r.total)||0;
-      if(!g.sns && r.sns) g.sns = r.sns;
-      if(!g.lastDate || (r.date||"") > g.lastDate) g.lastDate = r.date||"";
-    });
-
-    const list = Array.from(groups.values()).sort((a,b)=> (b.lastDate||"").localeCompare(a.lastDate||""));
-    const body = $("customersBody");
-    $("customersEmpty").hidden = list.length>0;
-    body.innerHTML = list.map(g=>{
-      const avg = g.count>0 ? Math.round(g.total/g.count) : 0;
-      const studioCell = currentStudioId===ALL
-        ? `<td>${Array.from(g.studioIds).map(id=>`<span class="pill studio"><span class="studio-dot" style="background:${studioColor(id)}"></span>${escapeHtml(studioName(id))}</span>`).join(" ")}</td>`
-        : "";
-      return `<tr>
-        <td>${escapeHtml(g.name)}</td>
-        <td>${escapeHtml(g.contact||"-")}</td>
-        <td>${escapeHtml(g.sns||"-")}</td>
-        ${studioCell}
-        <td class="num">${g.count}</td>
-        <td class="num">${yen(g.total)}</td>
-        <td class="num">${yen(avg)}</td>
-        <td>${escapeHtml(g.lastDate||"-")}</td>
-      </tr>`;
-    }).join("");
+  // =====================================================================
+  // CRM: customers are grouped from reservations by a normalized name key; profile data
+  // (contact, tags, memo, caution, merges) lives in the `customers` collection keyed the same way.
+  // =====================================================================
+  let customerDocs = {};   // key -> {displayName, contact, sns, tags[], memo, caution, cautionNote, mergedInto}
+  function custKeyOf(name){
+    const n = String(name||"").normalize("NFKC").replace(/\s+/g,"").replace(/(様|さま|さん)$/,"").toLowerCase();
+    if(!n || /^\(名前|^スペ|^スペース|^予約サイト|^\(スタッフ/.test(n)) return "";   // placeholders aren't people
+    return n;
   }
+  function resolveCustKey(k){
+    let guard = 0;
+    while(k && customerDocs[k] && customerDocs[k].mergedInto && guard++<10) k = customerDocs[k].mergedInto;
+    return k;
+  }
+  const custKeyOfRes = (r)=> resolveCustKey(custKeyOf(r.customerName));
+  const daysBetween = (a,b)=> Math.round((new Date(b+"T00:00:00") - new Date(a+"T00:00:00"))/86400000);
+  function buildCustomers(list){
+    const map = new Map();
+    list.forEach(r=>{
+      const k = custKeyOfRes(r); if(!k) return;
+      if(!map.has(k)) map.set(k, { key:k, names:[], contact:"", sns:"", studioIds:new Set(), res:[], count:0, total:0, first:"", last:"" });
+      const g = map.get(k);
+      g.res.push(r); g.count++; g.total += Number(r.total)||0; g.studioIds.add(r.studioId);
+      if(r.customerName) g.names.push(r.customerName);
+      if(!g.first || r.date < g.first) g.first = r.date;
+      if(!g.last || r.date > g.last){ g.last = r.date; if(r.contact) g.contact = r.contact; if(r.sns) g.sns = r.sns; }
+      if(!g.contact && r.contact) g.contact = r.contact;
+      if(!g.sns && r.sns) g.sns = r.sns;
+    });
+    const today = todayStr();
+    return Array.from(map.values()).map(g=>{
+      const d = customerDocs[g.key] || {};
+      g.res.sort((a,b)=> (a.date||"").localeCompare(b.date||""));
+      const past = g.res.filter(r=>r.date<=today);
+      g.lastPast = past.length ? past[past.length-1].date : "";
+      g.hasFuture = g.res.some(r=>r.date>today);
+      g.since = g.lastPast ? daysBetween(g.lastPast, today) : null;
+      g.name = d.displayName || g.names[g.names.length-1] || g.key;
+      g.contact = d.contact || g.contact; g.sns = d.sns || g.sns;
+      g.tags = d.tags || []; g.memo = d.memo || ""; g.caution = !!d.caution; g.cautionNote = d.cautionNote || "";
+      g.avg = g.count ? Math.round(g.total/g.count) : 0;
+      return g;
+    });
+  }
+  const custScopeRes = ()=> currentStudioId===ALL ? reservations : reservations.filter(r=>r.studioId===currentStudioId);
+  function cautionInfo(name){
+    const k = resolveCustKey(custKeyOf(name)); const d = k && customerDocs[k];
+    return d && d.caution ? (d.cautionNote || "要注意顧客です") : "";
+  }
+
+  function renderCustomersList(){
+    $("custScopeLabel").textContent = currentStudioId===ALL ? "全スタジオの顧客" : studioName(currentStudioId) + " の顧客";
+    const scoped = custScopeRes();
+    const all = buildCustomers(scoped);
+    const dormantDays = Math.max(1, parseInt($("custDormantDays").value,10)||90);
+    const isDormant = (g)=> !g.hasFuture && g.since!=null && g.since>=dormantDays;
+    const sortedTotals = all.map(g=>g.total).sort((a,b)=>b-a);
+    const vipLine = sortedTotals.length ? sortedTotals[Math.max(0, Math.ceil(sortedTotals.length*0.1)-1)] : Infinity;
+
+    // KPIs
+    const repeaters = all.filter(g=>g.count>=2);
+    const revAll = all.reduce((s,g)=>s+g.total,0), revRep = repeaters.reduce((s,g)=>s+g.total,0);
+    const intervals = repeaters.map(g=> daysBetween(g.first, g.last)/(g.count-1)).filter(v=>v>0);
+    $("ckTotal").textContent = all.length.toLocaleString("ja-JP") + "人";
+    const unnamed = scoped.filter(r=>!custKeyOfRes(r)).length;
+    $("ckTotalSub").textContent = unnamed ? `名前不明の予約 ${unnamed}件は除外` : "";
+    $("ckRepeat").textContent = all.length ? (repeaters.length/all.length*100).toFixed(1)+"%" : "-";
+    $("ckRepeatRev").textContent = revAll ? (revRep/revAll*100).toFixed(1)+"%" : "-";
+    $("ckLtv").textContent = all.length ? yen(revAll/all.length) : "-";
+    $("ckInterval").textContent = intervals.length ? Math.round(intervals.reduce((a,b)=>a+b,0)/intervals.length)+"日" : "-";
+    $("ckDormant").textContent = all.filter(isDormant).length + "人";
+    $("ckDormantSub").textContent = `最終利用から${dormantDays}日以上・今後の予約なし`;
+    $("ckNewThisMonth").textContent = all.filter(g=>monthStr(g.first)===curMonth).length + "人";
+    drawCustChart(all);
+
+    // filter + sort
+    const q = ($("custSearch").value||"").normalize("NFKC").toLowerCase().replace(/\s+/g,"");
+    const seg = $("custSegment").value;
+    const list = all.filter(g=>{
+      if(seg==="new" && g.count!==1) return false;
+      if(seg==="repeat" && g.count<2) return false;
+      if(seg==="dormant" && !isDormant(g)) return false;
+      if(seg==="vip" && !(g.total>=vipLine && g.total>0)) return false;
+      if(seg==="multi" && g.studioIds.size<2) return false;
+      if(seg==="caution" && !g.caution) return false;
+      if(seg==="tagged" && !g.tags.length) return false;
+      if(q){
+        const hay = [g.name, g.key, g.contact, g.sns, g.memo, g.tags.join(" "), g.cautionNote].join(" ").normalize("NFKC").toLowerCase().replace(/\s+/g,"");
+        if(!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    const cmp = { last:(a,b)=>(b.last||"").localeCompare(a.last||""), count:(a,b)=>b.count-a.count||b.total-a.total, total:(a,b)=>b.total-a.total,
+      since:(a,b)=>(b.since??-1)-(a.since??-1), name:(a,b)=>a.name.localeCompare(b.name,"ja") }[$("custSort").value];
+    list.sort(cmp);
+    custListForCsv = list;
+    $("custCount").textContent = `${list.length.toLocaleString("ja-JP")}人を表示(全${all.length.toLocaleString("ja-JP")}人)`;
+    $("customersEmpty").hidden = list.length>0;
+    $("customersBody").innerHTML = list.slice(0, 500).map(g=>`<tr data-cust="${escapeHtml(g.key)}" style="cursor:pointer;">
+        <td>${g.caution?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}<strong>${escapeHtml(g.name)}</strong>${g.tags.map(t=>` <span class="pill muted">${escapeHtml(t)}</span>`).join("")}${g.memo?`<div class="hint" style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(g.memo)}</div>`:""}</td>
+        <td class="muted" style="font-size:.78rem;">${escapeHtml(g.contact||"-")}${g.sns?`<br>${escapeHtml(g.sns)}`:""}</td>
+        <td>${Array.from(g.studioIds).map(id=>`<span class="pill studio"><span class="studio-dot" style="background:${studioColor(id)}"></span>${escapeHtml(studioName(id))}</span>`).join(" ")}</td>
+        <td class="num">${g.count}</td><td class="num">${yen(g.total)}</td><td class="num">${yen(g.avg)}</td>
+        <td>${escapeHtml(g.first||"-")}</td><td>${escapeHtml(g.last||"-")}${g.hasFuture?' <span class="pill good">予約あり</span>':""}</td>
+        <td class="num">${g.since==null?"-":g.since+"日"}</td>
+      </tr>`).join("") + (list.length>500 ? `<tr><td colspan="9" class="muted" style="text-align:center;">先頭500人を表示中。検索・セグメントで絞り込んでください</td></tr>` : "");
+    $("customersBody").querySelectorAll("[data-cust]").forEach(tr=> tr.addEventListener("click", ()=> openCustomerModal(tr.dataset.cust)));
+  }
+  let custListForCsv = [];
+  function drawCustChart(all){
+    // each booking counts as "new" if it is the customer's first ever, otherwise "repeat"
+    const firstOf = new Map(all.map(g=>[g.key, g.res[0] && g.res[0].id]));
+    const months = Array.from({length:12}, (_,i)=> shiftMonth(curMonth, i-11));
+    const counts = months.map(mo=>({ mo, n:0, r:0 }));
+    all.forEach(g=> g.res.forEach(r=>{
+      const c = counts.find(x=>x.mo===monthStr(r.date)); if(!c) return;
+      if(firstOf.get(g.key)===r.id) c.n++; else c.r++;
+    }));
+    const W=900, H=180, padT=14, padB=22, bw=W/12, max=Math.max(1, ...counts.map(c=>c.n+c.r));
+    const h = (v)=> (H-padT-padB)*v/max;
+    let s = `<line class="axis" x1="0" y1="${H-padB}" x2="${W}" y2="${H-padB}"/>`;
+    counts.forEach((c,i)=>{
+      const x = i*bw+bw*.2, w = bw*.6, hn = h(c.n), hr = h(c.r);
+      s += `<rect x="${x.toFixed(1)}" y="${(H-padB-hn).toFixed(1)}" width="${w.toFixed(1)}" height="${hn.toFixed(1)}" fill="var(--accent)" rx="2"><title>${c.mo} 新規 ${c.n}件</title></rect>`;
+      s += `<rect x="${x.toFixed(1)}" y="${(H-padB-hn-hr).toFixed(1)}" width="${w.toFixed(1)}" height="${hr.toFixed(1)}" fill="var(--good)" rx="2"><title>${c.mo} リピーター ${c.r}件</title></rect>`;
+      s += `<text x="${(i*bw+bw/2).toFixed(1)}" y="${H-6}" text-anchor="middle">${Number(c.mo.slice(5))}月</text>`;
+      if(c.n+c.r) s += `<text x="${(i*bw+bw/2).toFixed(1)}" y="${(H-padB-hn-hr-3).toFixed(1)}" text-anchor="middle">${c.n+c.r}</text>`;
+    });
+    $("custChart").innerHTML = s;
+  }
+  ["custSearch","custSegment","custSort","custDormantDays"].forEach(id=>{
+    $(id).addEventListener("input", renderCustomersList); $(id).addEventListener("change", renderCustomersList);
+  });
+  $("btnCustCsv").addEventListener("click", ()=>{
+    const list = custListForCsv;
+    if(!list.length){ toast("出力する顧客がいません"); return; }
+    const esc = (v)=> `"${String(v==null?"":v).replace(/"/g,'""')}"`;
+    const head = ["お客様名","連絡先","SNS","利用スタジオ","利用回数","累計売上","平均単価","初回利用","最終利用","経過日数","タグ","要注意","要注意メモ","メモ"];
+    const rows = list.map(g=>[g.name,g.contact,g.sns,Array.from(g.studioIds).map(studioName).join(" / "),g.count,g.total,g.avg,g.first,g.last,g.since??"",g.tags.join(" / "),g.caution?"要注意":"",g.cautionNote,g.memo]);
+    const csv = "﻿" + [head, ...rows].map(r=>r.map(esc).join(",")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"}));
+    a.download = `顧客一覧_${$("custSegment").selectedOptions[0].textContent.replace(/[()()\s]/g,"")}_${todayStr()}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  // ---------- customer profile ----------
+  let editingCustKey = null;
+  function openCustomerModal(key){
+    const everyone = buildCustomers(reservations);
+    const g = everyone.find(x=>x.key===key); if(!g) return;
+    editingCustKey = key;
+    $("custModalTitle").textContent = `顧客カルテ — ${g.name}`;
+    $("custCautionBanner").hidden = !g.caution;
+    $("custCautionBanner").textContent = g.caution ? `⚠ 要注意顧客: ${g.cautionNote||"(理由未記入)"}` : "";
+    $("cmCount").textContent = g.count+"回"; $("cmTotal").textContent = yen(g.total); $("cmAvg").textContent = yen(g.avg);
+    $("cmFirst").textContent = g.first||"-"; $("cmLast").textContent = g.last||"-";
+    $("cmSince").textContent = g.since==null ? "" : `最終利用から${g.since}日${g.hasFuture?" ・ 今後の予約あり":""}`;
+    $("cmName").value = g.name; $("cmTags").value = g.tags.join(", "); $("cmContact").value = g.contact||""; $("cmSns").value = g.sns||"";
+    $("cmMemo").value = g.memo; $("cmCaution").checked = g.caution; $("cmCautionNote").value = g.cautionNote;
+    // merge candidates: names sharing the first two characters come first
+    const head2 = key.slice(0,2);
+    const others = everyone.filter(x=>x.key!==key).sort((a,b)=> (b.key.startsWith(head2)-a.key.startsWith(head2)) || a.name.localeCompare(b.name,"ja"));
+    $("cmMergeTarget").innerHTML = `<option value="">同一人物の顧客を選んで統合…</option>` + others.slice(0,400).map(x=>`<option value="${escapeHtml(x.key)}">${escapeHtml(x.name)}(${x.count}回・${escapeHtml(x.last||"")})</option>`).join("");
+    $("cmHistory").innerHTML = g.res.slice().reverse().map(r=>`<tr>
+      <td>${escapeHtml(r.date||"")}</td>
+      <td><span class="pill studio"><span class="studio-dot" style="background:${studioColor(r.studioId)}"></span>${escapeHtml(studioName(r.studioId))}</span></td>
+      <td>${escapeHtml(r.startTime||"")}${r.endTime?"〜"+escapeHtml(r.endTime):""}</td>
+      <td>${escapeHtml(r.planName||"")}</td><td class="num">${yen(r.total)}</td>
+      <td>${r.paymentStatus==="入金済"?'<span class="pill good">入金済</span>':'<span class="pill warn">未収</span>'}</td>
+      <td><button class="btn sm ghost" data-open-res="${r.id}">開く</button></td></tr>`).join("");
+    $("cmHistory").querySelectorAll("[data-open-res]").forEach(b=> b.addEventListener("click", ()=>{ closeCustomerModal(); openReservationModal(b.dataset.openRes); }));
+    $("custModalOverlay").style.display = "flex";
+  }
+  function closeCustomerModal(){ $("custModalOverlay").style.display = "none"; }
+  $("custModalClose").addEventListener("click", closeCustomerModal);
+  $("btnCustCancel").addEventListener("click", closeCustomerModal);
+  $("custModalOverlay").addEventListener("click", (e)=>{ if(e.target.id==="custModalOverlay") closeCustomerModal(); });
+  $("btnCustSave").addEventListener("click", async ()=>{
+    if(!editingCustKey) return;
+    const data = {
+      displayName: $("cmName").value.trim(), contact: $("cmContact").value.trim(), sns: $("cmSns").value.trim(),
+      tags: $("cmTags").value.split(/[,、,]/).map(x=>x.trim()).filter(Boolean),
+      memo: $("cmMemo").value.trim(), caution: $("cmCaution").checked, cautionNote: $("cmCautionNote").value.trim(),
+      updatedAt: new Date().toISOString(), updatedBy: currentUserEmail||"",
+    };
+    try{ await db.collection("customers").doc(editingCustKey).set(data, {merge:true}); toast("保存しました"); closeCustomerModal(); }
+    catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
+  });
+  $("btnCustMerge").addEventListener("click", async ()=>{
+    const target = $("cmMergeTarget").value;
+    if(!editingCustKey || !target){ toast("統合先を選んでください"); return; }
+    const everyone = buildCustomers(reservations);
+    const from = everyone.find(x=>x.key===editingCustKey), to = everyone.find(x=>x.key===target);
+    if(!await appConfirm(`「${from.name}」(${from.count}回)を「${to.name}」(${to.count}回)に統合します。予約データはそのままで、顧客管理上は同一人物として扱います。よろしいですか？`, {okLabel:"統合する"})) return;
+    try{
+      // carry over profile fields the target doesn't have yet
+      const td = customerDocs[target] || {}, fd = customerDocs[editingCustKey] || {};
+      const patch = {};
+      ["contact","sns","memo","cautionNote"].forEach(k=>{ if(!td[k] && fd[k]) patch[k] = fd[k]; });
+      if(fd.caution && !td.caution) patch.caution = true;
+      if(fd.tags && fd.tags.length) patch.tags = Array.from(new Set([...(td.tags||[]), ...fd.tags]));
+      const batch = db.batch();
+      batch.set(db.collection("customers").doc(editingCustKey), { mergedInto: target, updatedAt: new Date().toISOString() }, {merge:true});
+      if(Object.keys(patch).length) batch.set(db.collection("customers").doc(target), patch, {merge:true});
+      await batch.commit();
+      toast("統合しました"); closeCustomerModal();
+    }catch(e){ toast("統合に失敗しました: "+(e&&e.message||e)); }
+  });
+  // caution warning while typing a name in the reservation form
+  function updateNameCaution(){
+    const c = cautionInfo($("fName").value);
+    $("fNameCaution").hidden = !c; $("fNameCaution").textContent = c ? "⚠ 要注意顧客: " + c : "";
+  }
+  $("fName").addEventListener("input", updateNameCaution);
+
 
   // ---- calendar ----
   const PAY_COLOR_UNPAID_DASH = true;
@@ -1951,6 +2206,7 @@
     $("fExtHours").value = r? r.extensionHours : 0;
     $("fCoupon").value = r? (r.couponCode||"") : (prefill.couponCode||"");
     $("fName").value = r? (r.customerName||"") : (prefill.customerName||"");
+    updateNameCaution();
     $("fContact").value = r? (r.contact||"") : (prefill.contact||"");
     $("fSns").value = r? (r.sns||"") : (prefill.sns||"");
     $("fWork").value = r? (r.workTitle||"") : "";
@@ -3366,6 +3622,8 @@
       else r.status = "new";
       seen.add(r.importKey);
       r.checked = r.status==="new";
+      const caution = cautionInfo(r.customerName);
+      if(caution) r.warn = [r.warn, "要注意顧客: "+caution].filter(Boolean).join(" / ");
     });
     importRows = rows;
     renderImportPreview();
@@ -3575,6 +3833,14 @@
       templates = snap.docs.map(d=>({id:d.id, ...d.data()}));
       if(templates.length===0) seedDefaultTemplate();
       if(activeViewName()==="mail") renderTemplateList();
+    }, err=>console.error(err));
+
+    db.collection("customers").onSnapshot(snap=>{
+      customerDocs = Object.fromEntries(snap.docs.map(d=>[d.id, d.data()]));
+      const v = activeViewName();
+      if(v==="customers") renderCustomersList();
+      if(v==="reservations") renderReservationsTable();
+      if(v==="reconcile") renderReconcile();
     }, err=>console.error(err));
 
     db.collection("snsStats").onSnapshot(snap=>{

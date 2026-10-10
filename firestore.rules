@@ -52,6 +52,11 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // Customer profiles (CRM): contact, tags, memo, caution flag, merges
+    match /customers/{id} {
+      allow read, write: if isSignedIn();
+    }
+
     // Monthly SNS figures per studio (entered by managers)
     match /snsStats/{id} {
       allow read: if isSignedIn();
