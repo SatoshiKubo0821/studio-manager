@@ -2701,10 +2701,12 @@
     const nm = t.match(/^\s*(.+?)\s*様/);
     const customerName = nm ? nm[1].replace(/\s+/g," ").trim() : "";
     const segs = [...t.matchAll(/ご予約日時/g)].map(m=>t.slice(m.index, m.index+120));
-    const timeRe = /(\d{1,2}:\d{2})\s*[〜~～\-ー]\s*(\d{1,2}:\d{2})/;
+    // "20:00〜翌1:00" (ends after midnight) is common for late bookings
+    const timeRe = /(\d{1,2}:\d{2})\s*[〜~～\-ー]\s*(翌)?\s*(\d{1,2}:\d{2})/;
     const seg = segs.find(g=>timeRe.test(g)) || segs[0];
     const tm = seg.match(timeRe);
-    const startTime = tm ? tm[1].padStart(5,"0") : "", endTime = tm ? tm[2].padStart(5,"0") : "";
+    const startTime = tm ? tm[1].padStart(5,"0") : "", endTime = tm ? tm[3].padStart(5,"0") : "";
+    const overnight = !!(tm && tm[2]);
     const md = seg.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日/);
     const mailDate = md ? `${md[1]||date.slice(0,4)}-${pad2(md[2])}-${pad2(md[3])}` : "";
     const ci = t.indexOf("ご予約内容"); const pseg = ci>=0 ? t.slice(ci, ci+200) : t;
@@ -2715,7 +2717,7 @@
     const total = sales!=null ? sales : (tot ? Number(tot[1].replace(/,/g,"")) : null);
     const dow = new Date(date+"T00:00:00").getDay();
     const cancelled = /キャンセル/.test([ex.bank, ex.parking, ex.memo].join(" "));
-    const notes = [`取込元: ${srcLabel}`, ex.confirmed && `確定連絡日: ${ex.confirmed}`,
+    const notes = [`取込元: ${srcLabel}`, overnight && `終了は翌日 ${endTime}`, ex.confirmed && `確定連絡日: ${ex.confirmed}`,
       mailDate && mailDate!==date && `確定メール上の日付は ${mailDate}(シートの ${date} 欄に記載)`,
       planName && !matchPlan(st, planName) && `メール記載プラン: ${planName}`, ...extras].filter(Boolean).join(" / ");
     return { ...base, startTime, endTime, customerName, planName, total,
