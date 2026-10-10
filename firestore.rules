@@ -68,5 +68,17 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isManagerOrAdmin();
     }
+
+    // ---- Photo Manager (写真事業・別アプリ。同じアカウント/ロールを使う) ----
+    // Bookings & sales: any signed-in member (including staff) can manage these.
+    match /photoBookings/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Pricing, products, fixed costs
+    match /photoConfig/{id} {
+      allow read: if isSignedIn();
+      allow write: if isManagerOrAdmin();
+    }
   }
 }

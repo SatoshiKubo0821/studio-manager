@@ -23,6 +23,7 @@
   - Hosting: `studiomanager-5eb1d.web.app`(独自ドメイン `studio.metalandtokyo.xyz` を CNAME で割り当て)
   - Authentication: メールアドレス+パスワード
   - Firestore: データ保存。ロールごとの権限は `firestore.rules` で制御
+  - 同じプロジェクトを写真事業向けの別アプリ Photo Manager(`../photo-manager`)も使います。`photoBookings` / `photoConfig` のルールもこのリポジトリの `firestore.rules` で管理しています
 
 ## 顧客管理(CRM)
 
