@@ -2479,7 +2479,8 @@
       if(/延長/.test(text)) kind = "extension";
       const skip = inSentence || /追加\s*1名|1名あたり|\/人|\/名|名ご利用時|直前予約/.test(text);
       name = name.slice(0,60) + (unit && !name.includes(unit) && kind!=="extension" ? `(${unit}あたり)` : "");
-      const key = `${skip?"ignore":kind}|${normKey(name)}|${amount}`;
+      // only collapse the exact same line repeated on the page (e.g. a price table shown twice)
+      const key = `${normKey(name)}|${line}`;
       if(seen.has(key)) return; seen.add(key);
       out.push({ kind: skip ? "ignore" : kind, name, amount, src: line.slice(0,80), checked: !skip });
     });
