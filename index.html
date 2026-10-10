@@ -2441,29 +2441,47 @@
   }
   const lineUnit = (line)=>{ const m = line.match(/\/\s*(h|時間|日|名|人|\d+時間)/); return m ? ({h:"時間"}[m[1]]||m[1]) : ""; };
   const isPriceOnly = (line)=> !line.replace(/[¥￥\d,円()()税込別抜\/hHー\-~〜:：…・*※\s時間日名人以上より]|[(（][^)）]*[)）]/g,"").trim();
+  const cleanName = (x)=> String(x||"")
+    .replace(/[((]表は横にスクロールできます[))]/g,"")
+    .replace(/^[((](スタジオご利用時間内|1時間あたりの利用料金)[))]\s*/,"")
+    .replace(/^[■□・☀🌙◆◇▼▶︎\s]+/u,"").replace(/\s*(ご)?利用料金$/,"").replace(/[…:：\-—–]+$/,"").trim();
+  const isSentence = (l)=> /。|ください|お願い|場合は|ません|できます|頂戴/.test(l) || l.length>40;
+  const isTimeOnly = (l)=> /^\d{1,2}[:：]\d{2}\s*[-–〜~]\s*\d{1,2}[:：]\d{2}/.test(l);
   function priceCandidates(lines, page){
-    const out = [];
+    const out = [], seen = new Set();
     lines.forEach((line, i)=>{
       const amount = lineAmount(line); if(amount==null) return;
       if(/例|【例】|合計|小計|=|=/.test(line)) return;          // worked examples, not prices
-      let name = line.replace(/[¥￥]?\s*[\d,]{3,}\s*円?.*$/,"").replace(/[…:：・\-—–]+$/,"").trim();
-      if(isPriceOnly(line) || name.length<2){
-        // price sits on its own line: name it from the closest preceding text lines (skip time ranges)
+      let residual = cleanName(line.replace(/[¥￥]?\s*[\d,]{3,}\s*円?.*$/,""));
+      const generic = !residual || residual.length<=4 || isTimeOnly(residual) || /\.\.\.$|…$/.test(residual)
+        || /^(一組あたり|料金|基本料金|対応時間|通常料金|現行料金|新料金|利用料金)/.test(residual);
+      let name = residual, inSentence = false;
+      if(generic || isPriceOnly(line)){
+        // name it from the closest preceding heading-like lines (skip notes, sentences and other prices)
         const prev = [];
         for(let k=i-1; k>=0 && prev.length<2; k--){
-          const l = lines[k];
-          if(lineAmount(l)!=null) break;
-          if(/^\d{1,2}[:：]\d{2}\s*[-–〜~]/.test(l) || /^※/.test(l) || l.length>40) continue;
+          const l = cleanName(lines[k]);
+          if(lineAmount(lines[k])!=null) break;
+          if(!l || /^※/.test(l) || isSentence(l)) continue;
+          if(isTimeOnly(l)){ if(!prev.length) continue; else break; }
           prev.unshift(l);
+          if(l.length>8) break;                               // a full heading — no need to look further
         }
-        name = prev.join(" ").replace(/\s*\(\s*/g,"(").replace(/\s*\)\s*/g,")").trim();
+        name = [...prev, (isTimeOnly(residual) ? residual.replace(/\.+$|…$/,"") : "")].filter(Boolean).join(" ").trim();
+      } else {
+        inSentence = isSentence(line);
       }
       if(!name) return;
       const unit = lineUnit(line);
+      const text = name + " " + line;
       let kind = page==="option" ? "option" : "plan";
-      if(/延長/.test(name+line)) kind = "extension";
-      const skip = /追加\s*1名|1名あたり|\/人|\/名|名ご利用時|直前予約/.test(name+line);
-      out.push({ kind: skip ? "ignore" : kind, name: name.slice(0,60) + (unit && !name.includes(unit) && kind!=="extension" ? `(${unit}あたり)` : ""), amount, src: line.slice(0,80), checked: !skip });
+      if(/商用|オプション|貸し?出|レンタル|照明|駐車|片付け|セット/.test(name)) kind = "option";
+      if(/延長/.test(text)) kind = "extension";
+      const skip = inSentence || /追加\s*1名|1名あたり|\/人|\/名|名ご利用時|直前予約/.test(text);
+      name = name.slice(0,60) + (unit && !name.includes(unit) && kind!=="extension" ? `(${unit}あたり)` : "");
+      const key = `${skip?"ignore":kind}|${normKey(name)}|${amount}`;
+      if(seen.has(key)) return; seen.add(key);
+      out.push({ kind: skip ? "ignore" : kind, name, amount, src: line.slice(0,80), checked: !skip });
     });
     return out;
   }
