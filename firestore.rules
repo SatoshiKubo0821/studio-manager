@@ -52,6 +52,12 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    // Monthly SNS figures per studio (entered by managers)
+    match /snsStats/{id} {
+      allow read: if isSignedIn();
+      allow write: if isManagerOrAdmin();
+    }
+
     // Mail templates
     match /mailTemplates/{id} {
       allow read: if isSignedIn();

@@ -347,6 +347,7 @@
       <button class="navbtn" data-view="coupons"><span class="dot"></span>クーポン</button>
       <button class="navbtn" data-view="mail"><span class="dot"></span>メール文章作成</button>
       <button class="navbtn" data-view="settings"><span class="dot"></span>料金設定</button>
+      <button class="navbtn" data-view="sns"><span class="dot"></span>SNS分析</button>
       <button class="navbtn" data-view="studios"><span class="dot"></span>スタジオ管理</button>
       <button class="navbtn" data-view="members" id="navMembers"><span class="dot"></span>メンバー管理</button>
     </div>
@@ -713,6 +714,78 @@
       </div>
     </section>
 
+    <!-- ================= SNS ================= -->
+    <section class="view" id="view-sns">
+      <div class="pagehead">
+        <div>
+          <h1>SNS分析(X)</h1>
+          <div class="sub" id="snsScope">各店舗のXの月次数値と、予約・売上の推移</div>
+        </div>
+        <div class="field" style="margin:0; min-width:160px;">
+          <label>対象月</label>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button class="cal-navbtn" id="snsMonthPrev" type="button">‹</button>
+            <input type="month" id="snsMonth" style="flex:1;">
+            <button class="cal-navbtn" id="snsMonthNext" type="button">›</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- all studios -->
+      <div class="card" id="snsAllCard">
+        <div class="card-head"><h2>店舗別(対象月)</h2><span class="muted" style="font-size:.75rem;">左上で店舗を選ぶと、入力と推移を表示します</span></div>
+        <div class="card-body">
+          <div class="tablewrap">
+            <table>
+              <thead><tr><th>店舗</th><th>Xアカウント</th><th class="num">フォロワー</th><th class="num">前月比</th><th class="num">投稿</th><th class="num">インプレッション</th><th class="num">エンゲージ率</th><th class="num">予約件数</th><th class="num">売上</th></tr></thead>
+              <tbody id="snsAllBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- single studio -->
+      <div id="snsOneWrap" hidden>
+        <div class="kpis">
+          <div class="kpi accent"><div class="label">フォロワー(月末)</div><div class="value" id="snsKFollowers">-</div><div class="hint" id="snsKFollowersDiff"></div></div>
+          <div class="kpi"><div class="label">投稿数</div><div class="value" id="snsKPosts">-</div></div>
+          <div class="kpi"><div class="label">インプレッション</div><div class="value" id="snsKImp">-</div><div class="hint" id="snsKImpPer"></div></div>
+          <div class="kpi"><div class="label">エンゲージメント率</div><div class="value" id="snsKEr">-</div></div>
+          <div class="kpi"><div class="label">プロフィールアクセス</div><div class="value" id="snsKProfile">-</div></div>
+          <div class="kpi"><div class="label">リンククリック</div><div class="value" id="snsKLink">-</div></div>
+          <div class="kpi good"><div class="label">予約件数(同月)</div><div class="value" id="snsKBookings">-</div><div class="hint" id="snsKRevenue"></div></div>
+        </div>
+
+        <div class="card" id="snsInputCard">
+          <div class="card-head"><h2 id="snsInputTitle">月次データの入力</h2><a id="snsXLink" target="_blank" rel="noopener" style="font-size:.8rem; color:var(--accent);"></a></div>
+          <div class="card-body">
+            <div class="hint" style="margin-bottom:10px;">Xアナリティクス(アカウント → アナリティクス)で対象月を選び、数値を写してください。フォロワー数は月末時点の数です。</div>
+            <div class="mapgrid" id="snsForm"></div>
+            <div class="field" style="margin-top:10px;"><label>メモ(キャンペーン・話題になった投稿など)</label><input type="text" id="snsNote"></div>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <span class="muted" id="snsSavedAt" style="font-size:.75rem; align-self:center;"></span>
+              <button class="btn primary" id="btnSnsSave" type="button">保存</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>推移(直近12か月)</h2>
+            <span class="muted" style="font-size:.72rem;"><span style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;"></span> インプレッション ・ <span style="display:inline-block;width:10px;height:2px;background:var(--good);vertical-align:middle;"></span> フォロワー ・ <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);"></span> 予約件数</span>
+          </div>
+          <div class="card-body">
+            <svg class="chart" id="snsChart" viewBox="0 0 900 200" preserveAspectRatio="none" style="height:200px;"></svg>
+            <div class="tablewrap" style="margin-top:12px;">
+              <table>
+                <thead><tr><th>月</th><th class="num">フォロワー</th><th class="num">増減</th><th class="num">投稿</th><th class="num">インプレッション</th><th class="num">エンゲージ率</th><th class="num">プロフィール</th><th class="num">リンク</th><th class="num">予約件数</th><th class="num">売上</th><th>メモ</th></tr></thead>
+                <tbody id="snsHistBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= STUDIOS ================= -->
     <section class="view" id="view-studios">
       <div class="pagehead">
@@ -953,6 +1026,10 @@
       <div class="field">
         <label>公式サイトのURL(任意)</label>
         <input type="url" id="sWebsiteUrl" placeholder="https://example.com/">
+      </div>
+      <div class="field">
+        <label>Xアカウント(任意)</label>
+        <input type="text" id="sXHandle" placeholder="@Studio_Example">
         <div class="hint">登録すると、スタジオ管理の「サイトから料金を読み込む」で料金・オプション・所在地をサイトから取り込めます(WordPressのサイトに対応)。</div>
       </div>
 
@@ -1259,6 +1336,7 @@
     if(v==="settings") renderSettingsForm();
     if(v==="studios") renderStudiosList();
     if(v==="members") renderMembersList();
+    if(v==="sns") renderSns();
   }
 
   // ---------- studio switcher ----------
@@ -2328,6 +2406,7 @@
       if(s.sheetId) links.push(`<a href="${escapeHtml(sheetOpenUrl(s))}" target="_blank" rel="noopener">スプレッドシートを開く ↗</a>`);
       if(s.calendarId) links.push(`<a href="${escapeHtml(calendarOpenUrl(s.calendarId))}" target="_blank" rel="noopener">カレンダーを開く ↗</a>`);
       if(s.websiteUrl) links.push(`<a href="${escapeHtml(s.websiteUrl)}" target="_blank" rel="noopener">公式サイト ↗</a>`);
+      if(s.xHandle) links.push(`<a href="https://x.com/${encodeURIComponent(s.xHandle)}" target="_blank" rel="noopener">X @${escapeHtml(s.xHandle)} ↗</a>`);
       const pills = [
         s.sheetId ? `<span class="pill good">シート連携</span>` : `<span class="pill muted">シート未登録</span>`,
         s.calendarId ? `<span class="pill good">カレンダー連携</span>` : `<span class="pill muted">カレンダー未登録</span>`,
@@ -2372,6 +2451,7 @@
     $("sSheetUrl").value = s? (s.sheetUrl||"") : "";
     $("sCalendarId").value = s? (s.calendarId||"") : "";
     $("sWebsiteUrl").value = s? (s.websiteUrl||"") : "";
+    $("sXHandle").value = s && s.xHandle ? "@"+s.xHandle : "";
     $("studioModalOverlay").style.display = "flex";
   }
   function closeStudioModal(){ $("studioModalOverlay").style.display="none"; }
@@ -2389,7 +2469,8 @@
     const calendarId = normalizeCalendarId($("sCalendarId").value);
     const websiteUrl = normalizeSiteUrl($("sWebsiteUrl").value);
     if($("sWebsiteUrl").value.trim() && !websiteUrl){ toast("公式サイトのURLを確認してください(https:// から始まるURL)"); return; }
-    const googleFields = { sheetUrl, sheetId: sheetId||"", calendarId, websiteUrl };
+    const xHandle = normalizeXHandle($("sXHandle").value);
+    const googleFields = { sheetUrl, sheetId: sheetId||"", calendarId, websiteUrl, xHandle };
     // a different sheet means the saved tab/column mapping no longer applies
     const prev = editingStudioId ? getStudio(editingStudioId) : null;
     if(prev && (prev.sheetId||"") !== googleFields.sheetId){ googleFields.sheetTab = ""; googleFields.sheetMapping = null; }
@@ -2414,6 +2495,129 @@
     if(!await appConfirm(msg, {okLabel:"削除する", danger:true})) return;
     await deleteStudio(editingStudioId);
     closeStudioModal();
+  });
+
+  // =====================================================================
+  // SNS ANALYTICS (X, monthly figures entered by hand)
+  // =====================================================================
+  let snsStats = [];   // {id: `${studioId}_x_${YYYY-MM}`, studioId, platform:"x", month, followers, posts, impressions, engagements, profileVisits, linkClicks, note}
+  const SNS_FIELDS = [
+    ["followers","フォロワー数(月末)"], ["posts","投稿数"], ["impressions","インプレッション"],
+    ["engagements","エンゲージメント"], ["profileVisits","プロフィールアクセス"], ["linkClicks","リンククリック"],
+  ];
+  function normalizeXHandle(v){
+    v = String(v||"").trim(); if(!v) return "";
+    const m = v.match(/(?:x\.com|twitter\.com)\/([A-Za-z0-9_]{1,15})/) || v.match(/^@?([A-Za-z0-9_]{1,15})$/);
+    return m ? m[1] : "";
+  }
+  const snsDocId = (studioId, month)=> `${studioId}_x_${month}`;
+  const snsGet = (studioId, month)=> snsStats.find(x=>x.id===snsDocId(studioId, month));
+  const num = (v)=> (v==null || v==="") ? null : Number(v);
+  const fmtN = (v)=> v==null ? "-" : Number(v).toLocaleString("ja-JP");
+  const erOf = (x)=> x && x.impressions ? (x.engagements||0)/x.impressions*100 : null;
+  const fmtPct = (v)=> v==null ? "-" : v.toFixed(1)+"%";
+  const diffStr = (a,b)=> (a==null||b==null) ? "" : (a-b>=0?"+":"")+(a-b).toLocaleString("ja-JP");
+  function monthBookings(studioId, month){
+    const list = reservations.filter(r=> (studioId===ALL || r.studioId===studioId) && monthStr(r.date)===month);
+    return { n:list.length, sum:list.reduce((s,r)=>s+(r.total||0),0) };
+  }
+  const canEditSns = ()=> myRole==="admin" || myRole==="manager";
+
+  $("snsMonth").value = shiftMonth(curMonth, -1);   // last full month is the one usually entered
+  $("snsMonth").addEventListener("change", renderSns);
+  $("snsMonthPrev").addEventListener("click", ()=>{ $("snsMonth").value = shiftMonth($("snsMonth").value||curMonth, -1); renderSns(); });
+  $("snsMonthNext").addEventListener("click", ()=>{ $("snsMonth").value = shiftMonth($("snsMonth").value||curMonth, 1); renderSns(); });
+
+  function renderSns(){
+    const m = $("snsMonth").value || curMonth, pm = shiftMonth(m, -1);
+    const all = currentStudioId===ALL || !getStudio(currentStudioId);
+    $("snsAllCard").hidden = !all;
+    $("snsOneWrap").hidden = all;
+    if(all){
+      $("snsScope").textContent = "全店舗のXの数値と予約・売上(店舗を選ぶと入力できます)";
+      $("snsAllBody").innerHTML = studios.map(st=>{
+        const x = snsGet(st.id, m), px = snsGet(st.id, pm), b = monthBookings(st.id, m);
+        return `<tr>
+          <td><span class="pill studio"><span class="studio-dot" style="background:${st.color||'#999'}"></span>${escapeHtml(st.name)}</span></td>
+          <td>${st.xHandle?`<a href="https://x.com/${encodeURIComponent(st.xHandle)}" target="_blank" rel="noopener" style="color:var(--accent);">@${escapeHtml(st.xHandle)}</a>`:'<span class="muted">未登録</span>'}</td>
+          <td class="num">${fmtN(x&&x.followers)}</td>
+          <td class="num">${escapeHtml(diffStr(x&&x.followers, px&&px.followers))||"-"}</td>
+          <td class="num">${fmtN(x&&x.posts)}</td>
+          <td class="num">${fmtN(x&&x.impressions)}</td>
+          <td class="num">${fmtPct(erOf(x))}</td>
+          <td class="num">${b.n}</td>
+          <td class="num">${yen(b.sum)}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="9" class="empty">スタジオがありません</td></tr>`;
+      return;
+    }
+    const st = getStudio(currentStudioId);
+    $("snsScope").textContent = `${st.name} のXの数値と予約・売上`;
+    const x = snsGet(st.id, m) || {}, px = snsGet(st.id, pm) || {}, b = monthBookings(st.id, m);
+    $("snsKFollowers").textContent = fmtN(x.followers);
+    $("snsKFollowersDiff").textContent = diffStr(x.followers, px.followers) ? `前月比 ${diffStr(x.followers, px.followers)}` : "";
+    $("snsKPosts").textContent = fmtN(x.posts);
+    $("snsKImp").textContent = fmtN(x.impressions);
+    $("snsKImpPer").textContent = x.impressions && x.posts ? `1投稿あたり ${fmtN(Math.round(x.impressions/x.posts))}` : "";
+    $("snsKEr").textContent = fmtPct(erOf(x));
+    $("snsKProfile").textContent = fmtN(x.profileVisits);
+    $("snsKLink").textContent = fmtN(x.linkClicks);
+    $("snsKBookings").textContent = b.n + "件";
+    $("snsKRevenue").textContent = yen(b.sum);
+
+    // input form
+    const [yy, mm] = m.split("-");
+    $("snsInputTitle").textContent = `${Number(yy)}年${Number(mm)}月の数値を入力`;
+    $("snsXLink").textContent = st.xHandle ? `X @${st.xHandle} を開く ↗` : "Xアカウント未登録(スタジオ管理の編集で登録)";
+    if(st.xHandle) $("snsXLink").href = `https://x.com/${encodeURIComponent(st.xHandle)}`; else $("snsXLink").removeAttribute("href");
+    const editable = canEditSns();
+    $("snsForm").innerHTML = SNS_FIELDS.map(([k,l])=>`<div class="field"><label>${l}</label><input type="number" min="0" step="1" data-sns="${k}" value="${x[k]==null?"":x[k]}" ${editable?"":"disabled"}></div>`).join("");
+    $("snsNote").value = x.note || ""; $("snsNote").disabled = !editable;
+    $("btnSnsSave").hidden = !editable;
+    $("snsSavedAt").textContent = x.updatedAt ? `最終更新 ${fmtDateTime(x.updatedAt)}${x.updatedBy?" ・ "+x.updatedBy:""}` : (editable ? "" : "閲覧のみ(入力はマネージャー以上)");
+
+    // 12-month history
+    const months = Array.from({length:12}, (_,i)=> shiftMonth(m, i-11));
+    const rows = months.map(mo=>({ mo, x: snsGet(st.id, mo)||{}, b: monthBookings(st.id, mo) }));
+    $("snsHistBody").innerHTML = rows.slice().reverse().map(({mo,x,b},i,arr)=>{
+      const prev = arr[i+1] ? arr[i+1].x : {};
+      return `<tr><td>${mo}</td><td class="num">${fmtN(x.followers)}</td><td class="num">${escapeHtml(diffStr(x.followers, prev.followers))||"-"}</td>
+        <td class="num">${fmtN(x.posts)}</td><td class="num">${fmtN(x.impressions)}</td><td class="num">${fmtPct(erOf(x))}</td>
+        <td class="num">${fmtN(x.profileVisits)}</td><td class="num">${fmtN(x.linkClicks)}</td>
+        <td class="num">${b.n}</td><td class="num">${yen(b.sum)}</td><td class="muted" style="max-width:220px;">${escapeHtml(x.note||"")}</td></tr>`;
+    }).join("");
+    drawSnsChart(rows);
+  }
+  function drawSnsChart(rows){
+    const W=900, H=200, padL=8, padR=8, padT=14, padB=22, n=rows.length, bw=(W-padL-padR)/n;
+    const maxImp = Math.max(1, ...rows.map(r=>r.x.impressions||0));
+    const fol = rows.map(r=>r.x.followers).filter(v=>v!=null);
+    const fMin = fol.length ? Math.min(...fol) : 0, fMax = fol.length ? Math.max(...fol) : 1;
+    const maxB = Math.max(1, ...rows.map(r=>r.b.n));
+    const y = (v,max)=> padT + (H-padT-padB) * (1 - v/max);
+    const yf = (v)=> padT + (H-padT-padB) * (1 - (fMax===fMin ? .5 : (v-fMin)/(fMax-fMin)));
+    let s = `<line class="axis" x1="${padL}" y1="${H-padB}" x2="${W-padR}" y2="${H-padB}"/>`;
+    rows.forEach((r,i)=>{
+      const x0 = padL + i*bw;
+      if(r.x.impressions){ const yy = y(r.x.impressions, maxImp); s += `<rect class="bar" x="${(x0+bw*.2).toFixed(1)}" y="${yy.toFixed(1)}" width="${(bw*.6).toFixed(1)}" height="${(H-padB-yy).toFixed(1)}" rx="2"><title>${r.mo} インプレッション ${fmtN(r.x.impressions)}</title></rect>`; }
+      s += `<text x="${(x0+bw/2).toFixed(1)}" y="${H-6}" text-anchor="middle">${Number(r.mo.slice(5))}月</text>`;
+      if(r.b.n){ s += `<circle cx="${(x0+bw/2).toFixed(1)}" cy="${y(r.b.n,maxB).toFixed(1)}" r="4" fill="var(--warn)"><title>${r.mo} 予約 ${r.b.n}件</title></circle>`; }
+    });
+    const pts = rows.map((r,i)=> r.x.followers==null ? null : `${(padL+i*bw+bw/2).toFixed(1)},${yf(r.x.followers).toFixed(1)}`).filter(Boolean);
+    if(pts.length>1) s += `<polyline points="${pts.join(" ")}" fill="none" stroke="var(--good)" stroke-width="2"/>`;
+    pts.forEach(p=>{ const [cx,cy]=p.split(","); s += `<circle cx="${cx}" cy="${cy}" r="3" fill="var(--good)"/>`; });
+    $("snsChart").innerHTML = s;
+  }
+  $("btnSnsSave").addEventListener("click", async ()=>{
+    const st = getStudio(currentStudioId); if(!st || !canEditSns()) return;
+    const m = $("snsMonth").value || curMonth;
+    const data = { studioId: st.id, studioName: st.name, platform: "x", month: m, note: $("snsNote").value.trim(),
+      updatedAt: new Date().toISOString(), updatedBy: currentUserEmail || "" };
+    let any = false;
+    $("snsForm").querySelectorAll("[data-sns]").forEach(el=>{ const v = num(el.value); data[el.dataset.sns] = v==null ? null : Math.max(0, Math.round(v)); if(v!=null) any = true; });
+    if(!any && !data.note){ toast("数値を入力してください"); return; }
+    try{ await db.collection("snsStats").doc(snsDocId(st.id, m)).set(data, {merge:true}); toast("保存しました"); }
+    catch(e){ toast("保存に失敗しました: "+(e&&e.message||e)); }
   });
 
   // =====================================================================
@@ -3371,6 +3575,11 @@
       templates = snap.docs.map(d=>({id:d.id, ...d.data()}));
       if(templates.length===0) seedDefaultTemplate();
       if(activeViewName()==="mail") renderTemplateList();
+    }, err=>console.error(err));
+
+    db.collection("snsStats").onSnapshot(snap=>{
+      snsStats = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      if(activeViewName()==="sns") renderSns();
     }, err=>console.error(err));
 
     db.collection("users").onSnapshot(snap=>{
