@@ -2873,9 +2873,14 @@
       const block = {};
       for(let k=r+1; k<v.length && !/^予定/.test(label0(v[k])); k++){ const l = label0(v[k]); if(l && !(l in block)) block[l] = k; }
       for(let c=1; c<(v[r]||[]).length; c++){
-        const text = cellText(v[r][c]);
-        if(!text || !dates[c]) continue;
+        if(!dates[c]) continue;
         const get = (l)=> block[l]!=null ? cellText((v[block[l]]||[])[c]) : "";
+        let text = cellText(v[r][c]);
+        // booking-site reservations are sometimes logged with only an amount and a memo ("スペマ予約")
+        if(!text){
+          if(!(parseAmount(get("売上")).value>0)) continue;
+          text = ["(名前なし)", get("備考欄")].filter(Boolean).join(" ");
+        }
         rows.push(parseGridCell(text, dates[c], {
           confirmed:get("予約&カレンダー確定連絡日"), sales:get("売上"), bank:get("銀行振込"), parking:get("駐車場"), memo:get("備考欄"),
         }, `${tab.title} ${colLetter(c)}${r+1}`, st));
