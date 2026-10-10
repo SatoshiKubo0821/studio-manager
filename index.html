@@ -2365,10 +2365,12 @@
   // OAuth "Web application" client ID from Google Cloud Console (project
   // studiomanager-5eb1d). Public by design, like firebaseConfig above.
   const GOOGLE_OAUTH_CLIENT_ID = "978057032673-q51qfnntq114ai3ffd2tav7u9o5ijtr4.apps.googleusercontent.com";
-  const GOOGLE_SCOPES = "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/calendar.readonly";
+  // drive.readonly: Excel (.xlsx) files kept in Drive can't be read through the Sheets API
+  const GOOGLE_SCOPES = "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/drive.readonly";
+  const SHEETJS_URL = "https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js";
 
   function parseSheetId(url){
-    const m = String(url||"").trim().match(/^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/([a-zA-Z0-9_-]{20,})/);
+    const m = String(url||"").trim().match(/^https:\/\/(?:docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d|drive\.google\.com\/file\/(?:u\/\d+\/)?d)\/([a-zA-Z0-9_-]{20,})/);
     return m ? m[1] : null;
   }
   function sheetGidFromUrl(url){
@@ -2403,7 +2405,8 @@
   // ---------- OAuth token (kept in memory only) ----------
   let googleToken = null; // {accessToken, expiresAt}
   let tokenClient = null;
-  function googleTokenValid(){ return googleToken && Date.now() < googleToken.expiresAt - 60000; }
+  // a token granted before a scope was added (e.g. drive.readonly) must be requested again
+  function googleTokenValid(){ return !!googleToken && Date.now() < googleToken.expiresAt - 60000 && GOOGLE_SCOPES.split(" ").every(x=> (googleToken.scope||"").split(" ").includes(x)); }
   function requestGoogleToken(){
     return new Promise((resolve, reject)=>{
       if(!GOOGLE_OAUTH_CLIENT_ID){ reject(new Error("Google連携の初期設定(OAuthクライアントID)がまだです")); return; }
@@ -2414,7 +2417,7 @@
         login_hint: currentUserEmail || undefined,
         callback: (resp)=>{
           if(resp.error){ reject(new Error(resp.error_description || resp.error)); return; }
-          googleToken = { accessToken: resp.access_token, expiresAt: Date.now() + (Number(resp.expires_in)||3600)*1000 };
+          googleToken = { accessToken: resp.access_token, scope: resp.scope || "", expiresAt: Date.now() + (Number(resp.expires_in)||3600)*1000 };
           renderGoogleStatus();
           resolve(googleToken.accessToken);
         },
@@ -2435,6 +2438,7 @@
     try{ const j = await res.json(); msg = (j.error && j.error.message) || ""; }catch(e){}
     if(res.status===401){ googleToken = null; renderGoogleStatus(); throw new Error("Googleの接続が切れました。もう一度「Googleアカウントで接続」を押してください"); }
     if(res.status===403 && /has not been used|is disabled/i.test(msg)) throw new Error("Google Cloud側で API が有効になっていません: " + msg);
+    if(res.status===403 && /insufficient|scope/i.test(msg)){ googleToken = null; renderGoogleStatus(); throw new Error("追加の許可が必要です。もう一度「Googleアカウントで接続」を押してください"); }
     if(res.status===403) throw new Error("このGoogleアカウントには閲覧権限がありません。共有設定を確認してください");
     if(res.status===404) throw new Error("見つかりませんでした。URL / カレンダーID と共有設定を確認してください");
     throw new Error(`Googleからの読み込みに失敗しました (${res.status}) ${msg}`);
@@ -2467,6 +2471,8 @@
     const st = getStudio(studioId); if(!st) return;
     importStudioId = studioId;
     sheetValues = null; importRows = []; sheetTabsLoadedFor = null;
+    sheetBook = null; sheetBookFor = null; gridMode = false;
+    $("iSheetTab").disabled = false; $("iHeaderRow").closest(".field").hidden = false;
     $("importModalTitle").textContent = `予約の取り込み — ${st.name}`;
     $("iSheetTab").innerHTML = st.sheetTab ? `<option>${escapeHtml(st.sheetTab)}</option>` : `<option value="">(接続後に選べます)</option>`;
     $("iHeaderRow").value = (st.sheetMapping && st.sheetMapping.headerRow) || 1;
@@ -2530,29 +2536,76 @@
   });
 
   // ---------- spreadsheet ----------
-  async function loadSheetTabs(){
-    const st = importStudio(); if(!st || !st.sheetId) return;
-    if(sheetTabsLoadedFor===st.sheetId) return;
-    const meta = await googleGet(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(st.sheetId)}?fields=properties.title,sheets.properties(sheetId,title)`);
-    const tabs = (meta.sheets||[]).map(x=>x.properties);
-    const gid = sheetGidFromUrl(st.sheetUrl);
-    const preferred = (st.sheetTab && tabs.find(t=>t.title===st.sheetTab)) || (gid!=null && tabs.find(t=>t.sheetId===gid)) || tabs[0];
-    $("iSheetTab").innerHTML = tabs.map(t=>`<option>${escapeHtml(t.title)}</option>`).join("");
-    if(preferred) $("iSheetTab").value = preferred.title;
-    sheetTabsLoadedFor = st.sheetId;
+  // The whole file is loaded once as {title, values[][]} per tab. Native Google Sheets come
+  // through the Sheets API; Excel files in Drive are downloaded and parsed with SheetJS.
+  let sheetBook = null;        // [{title, values}]
+  let sheetBookFor = null;
+  let gridMode = false;        // calendar-style workbook (dates across, booking emails in cells)
+
+  function loadScriptOnce(src){
+    return new Promise((resolve, reject)=>{
+      if(document.querySelector(`script[src="${src}"]`) && window.XLSX){ resolve(); return; }
+      const el = document.createElement("script");
+      el.src = src; el.onload = ()=>resolve(); el.onerror = ()=>reject(new Error("Excel読み込み用の部品を取得できませんでした"));
+      document.head.appendChild(el);
+    });
   }
+  async function loadSheetBook(){
+    const st = importStudio(); if(!st || !st.sheetId) return;
+    if(sheetBookFor===st.sheetId && sheetBook) return;
+    const meta = await googleGet(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(st.sheetId)}?fields=mimeType,name&supportsAllDrives=true`);
+    let book;
+    if(meta.mimeType==="application/vnd.google-apps.spreadsheet"){
+      const sm = await googleGet(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(st.sheetId)}?fields=sheets.properties(sheetId,title)`);
+      const tabs = (sm.sheets||[]).map(x=>x.properties);
+      const q = tabs.map(t=>"ranges="+encodeURIComponent(`'${t.title.replace(/'/g,"''")}'`)).join("&");
+      const data = await googleGet(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(st.sheetId)}/values:batchGet?${q}&valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`);
+      book = tabs.map((t,i)=>({ title:t.title, gid:t.sheetId, values:(data.valueRanges[i]||{}).values||[] }));
+    } else if(/spreadsheetml|ms-excel|opendocument\.spreadsheet/.test(meta.mimeType)){
+      await loadScriptOnce(SHEETJS_URL);
+      const token = await ensureGoogleToken();
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(st.sheetId)}?alt=media&supportsAllDrives=true`, { headers:{ Authorization:"Bearer "+token } });
+      if(!res.ok) throw new Error(`ファイルをダウンロードできませんでした (${res.status})`);
+      const wb = XLSX.read(await res.arrayBuffer(), { type:"array", cellDates:true });
+      book = wb.SheetNames.map(name=>({ title:name, gid:null, values: XLSX.utils.sheet_to_json(wb.Sheets[name], { header:1, raw:true, defval:null }) }));
+    } else {
+      throw new Error("スプレッドシート(Googleスプレッドシート / Excel)ではないファイルです: "+meta.mimeType);
+    }
+    sheetBook = book; sheetBookFor = st.sheetId;
+    gridMode = book.some(isGridTab);
+    const gid = sheetGidFromUrl(st.sheetUrl);
+    if(gridMode){
+      const n = book.filter(isGridTab).length;
+      $("iSheetTab").innerHTML = `<option value="__grid__">カレンダー形式の月別シート ${n} 枚をまとめて読み込み</option>`;
+      $("iSheetTab").disabled = true;
+    } else {
+      const preferred = (st.sheetTab && book.find(t=>t.title===st.sheetTab)) || (gid!=null && book.find(t=>t.gid===gid)) || book[0];
+      $("iSheetTab").innerHTML = book.map(t=>`<option>${escapeHtml(t.title)}</option>`).join("");
+      $("iSheetTab").disabled = false;
+      if(preferred) $("iSheetTab").value = preferred.title;
+    }
+    $("iHeaderRow").closest(".field").hidden = gridMode;
+  }
+  // kept for the existing callers (modal open / connect / tab switch)
+  async function loadSheetTabs(){ return loadSheetBook(); }
 
   $("btnLoadSheet").addEventListener("click", async ()=>{
     const st = importStudio(); if(!st) return;
     const btn = $("btnLoadSheet");
     btn.disabled = true; btn.textContent = "読み込み中…";
     try{
-      await loadSheetTabs();
-      const tab = $("iSheetTab").value;
+      await loadSheetBook();
+      if(gridMode){
+        sheetValues = null;
+        $("iMappingWrap").hidden = true;
+        const rows = sheetBook.filter(isGridTab).flatMap(t=>parseGridTab(t, st));
+        if(!rows.length) throw new Error("予約が見つかりませんでした");
+        finalizeRows(rows);
+        return;
+      }
+      const tab = sheetBook.find(t=>t.title===$("iSheetTab").value);
       if(!tab) throw new Error("シート(タブ)を選択してください");
-      const range = encodeURIComponent(`'${tab.replace(/'/g,"''")}'`);
-      const data = await googleGet(`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(st.sheetId)}/values/${range}?valueRenderOption=FORMATTED_VALUE&dateTimeRenderOption=FORMATTED_STRING`);
-      sheetValues = data.values || [];
+      sheetValues = tab.values.map(r=>r.map(v=> v instanceof Date ? localDateStr(v) : v));
       if(!sheetValues.length) throw new Error("シートにデータがありません");
       renderMappingUI();
       buildSheetRows();
@@ -2561,6 +2614,84 @@
   });
   $("iHeaderRow").addEventListener("change", ()=>{ if(sheetValues){ renderMappingUI(true); buildSheetRows(); } });
   $("iSheetTab").addEventListener("change", ()=>{ sheetValues = null; $("iMappingWrap").hidden = true; $("iPreviewWrap").hidden = true; });
+
+  // ---------- calendar-style workbook ----------
+  // Layout: column A has labels; a "日付" row with one date per column; then repeating blocks
+  // starting with "予定N" (the confirmation e-mail pasted into the cell) followed by rows such as
+  // 予約&カレンダー確定連絡日 / 売上 / 銀行振込 / 駐車場 / 備考欄.
+  const label0 = (row)=> String((row||[])[0]==null ? "" : row[0]).trim();
+  function isGridTab(tab){
+    const di = tab.values.findIndex(r=>label0(r)==="日付");
+    return di>=0 && tab.values.some(r=>/^予定/.test(label0(r)));
+  }
+  const cellText = (v)=> v==null ? "" : (v instanceof Date ? localDateStr(v) : String(v)).trim();
+  function gridDate(v, ctx){
+    if(v instanceof Date) return localDateStr(v);
+    if(typeof v==="number") return parseDateCell(String(Math.floor(v)), ctx);
+    return parseDateCell(v, ctx);
+  }
+  function matchPlan(st, name){
+    if(!name) return null;
+    const base = (s)=> normKey(String(s).normalize("NFKC").replace(/[（(][^)）]*[)）]/g,""));
+    return (st.plans||[]).find(p=> normKey(p.name)===normKey(name)) || (st.plans||[]).find(p=> base(p.name)===base(name)) || null;
+  }
+  function parseGridTab(tab, st){
+    const ym = tab.title.match(/(\d{4})\s*年/);
+    const ctx = { year: ym ? Number(ym[1]) : null };
+    const v = tab.values;
+    const di = v.findIndex(r=>label0(r)==="日付");
+    const dates = (v[di]||[]).map((x,i)=> i===0 ? null : gridDate(x, ctx));
+    const rows = [];
+    for(let r=di+1; r<v.length; r++){
+      if(!/^予定/.test(label0(v[r]))) continue;
+      const block = {};
+      for(let k=r+1; k<v.length && !/^予定/.test(label0(v[k])); k++){ const l = label0(v[k]); if(l && !(l in block)) block[l] = k; }
+      for(let c=1; c<(v[r]||[]).length; c++){
+        const text = cellText(v[r][c]);
+        if(!text || !dates[c]) continue;
+        const get = (l)=> block[l]!=null ? cellText((v[block[l]]||[])[c]) : "";
+        rows.push(parseGridCell(text, dates[c], {
+          confirmed:get("予約&カレンダー確定連絡日"), sales:get("売上"), bank:get("銀行振込"), parking:get("駐車場"), memo:get("備考欄"),
+        }, `${tab.title} ${colLetter(c)}${r+1}`, st));
+      }
+    }
+    return rows;
+  }
+  function parseGridCell(raw, date, ex, srcLabel, st){
+    const t = raw.normalize("NFKC");
+    const base = { srcLabel, date, contact:"", sns:"", workTitle:"", payRaw:"", isHoliday:false, warn:"" };
+    const extras = [["銀行振込欄",ex.bank],["駐車場欄",ex.parking],["備考欄",ex.memo]].filter(([,x])=>x).map(([l,x])=>`${l}: ${x}`);
+    if(!t.includes("ご予約日時")){
+      return { ...base, startTime:"", endTime:"", customerName:t.slice(0,30), planName:"", total:parseAmount(ex.sales).value,
+        notes:t.slice(0,200), error:"予約確定メールではないため対象外(社内利用など。必要なら手入力)", importKey:"" };
+    }
+    const nm = t.match(/^\s*(.+?)\s*様/);
+    const customerName = nm ? nm[1].replace(/\s+/g," ").trim() : "";
+    const segs = [...t.matchAll(/ご予約日時/g)].map(m=>t.slice(m.index, m.index+120));
+    const timeRe = /(\d{1,2}:\d{2})\s*[〜~～\-ー]\s*(\d{1,2}:\d{2})/;
+    const seg = segs.find(g=>timeRe.test(g)) || segs[0];
+    const tm = seg.match(timeRe);
+    const startTime = tm ? tm[1].padStart(5,"0") : "", endTime = tm ? tm[2].padStart(5,"0") : "";
+    const md = seg.match(/(?:(\d{4})年)?(\d{1,2})月(\d{1,2})日/);
+    const mailDate = md ? `${md[1]||date.slice(0,4)}-${pad2(md[2])}-${pad2(md[3])}` : "";
+    const ci = t.indexOf("ご予約内容"); const pseg = ci>=0 ? t.slice(ci, ci+200) : t;
+    const pm = pseg.match(/【([^】]*プラン[^】]*)】/) || pseg.match(/((?:平日|土日祝)\S*プラン\S*?)(?=\s|\d|$)/) || t.match(/【([^】]*プラン[^】]*)】/);
+    const planName = pm ? pm[1].trim() : "";
+    const tot = t.match(/合計(?:金額)?\s*[:：]?\s*[¥￥]?\s*([\d,]+)\s*円/);
+    const sales = parseAmount(ex.sales).value;
+    const total = sales!=null ? sales : (tot ? Number(tot[1].replace(/,/g,"")) : null);
+    const dow = new Date(date+"T00:00:00").getDay();
+    const cancelled = /キャンセル/.test([ex.bank, ex.parking, ex.memo].join(" "));
+    const notes = [`取込元: ${srcLabel}`, ex.confirmed && `確定連絡日: ${ex.confirmed}`,
+      mailDate && mailDate!==date && `確定メール上の日付は ${mailDate}(シートの ${date} 欄に記載)`,
+      planName && !matchPlan(st, planName) && `メール記載プラン: ${planName}`, ...extras].filter(Boolean).join(" / ");
+    return { ...base, startTime, endTime, customerName, planName, total,
+      isHoliday: /土日祝/.test(planName) && dow>=1 && dow<=5,
+      warn: mailDate && mailDate!==date ? `メールの日付(${mailDate})とシートの欄が違います` : "",
+      notes,
+      error: cancelled ? "キャンセルと記載あり" : (!customerName ? "お客様名を読み取れません" : (!startTime ? "時間を読み取れません" : "")),
+      importKey: `sheet:${st.sheetId}:${date}|${startTime}|${normKey(customerName)}` };
+  }
 
   function headerRowIndex(){ return Math.max(1, parseInt($("iHeaderRow").value,10)||1) - 1; }
   function currentHeaders(){
@@ -2813,11 +2944,11 @@
       for(let i=0; i<picked.length; i+=400){
         const batch = db.batch();
         picked.slice(i,i+400).forEach(r=>{
-          const plan = r.planName ? (st.plans||[]).find(p=> normKey(p.name)===normKey(r.planName)) : null;
+          const plan = matchPlan(st, r.planName);
           const total = r.total!=null ? r.total : (plan ? plan.price : 0);
           batch.set(db.collection("reservations").doc(), {
             studioId: st.id, studioName: st.name,
-            date: r.date, isHoliday: false, startTime: r.startTime, endTime: r.endTime,
+            date: r.date, isHoliday: !!r.isHoliday, startTime: r.startTime, endTime: r.endTime,
             planId: plan? plan.id : "", planName: plan? plan.name : r.planName, planPrice: plan? plan.price : 0,
             optionIds: [], optionsTotal: 0, extensionHours: 0, extensionFee: 0,
             couponCode: "", couponDiscount: 0, subtotal: total, total,
@@ -2832,7 +2963,9 @@
         picked.slice(i,i+400).forEach(r=>{ r.status = "imported"; r.checked = false; });
       }
       toast(`${picked.length} 件を取り込みました`);
-      const patch = importSource==="sheet"
+      const patch = importSource==="sheet" && gridMode
+        ? { lastSheetImportAt: now, sheetFormat: "grid" }
+        : importSource==="sheet"
         ? { lastSheetImportAt: now, sheetTab: $("iSheetTab").value, sheetMapping: {
               tab: $("iSheetTab").value, headerRow: headerRowIndex()+1,
               cols: Object.fromEntries(Object.entries(readMapping()).map(([k,i])=>[k, {name: currentHeaders()[i], index: i}])) } }

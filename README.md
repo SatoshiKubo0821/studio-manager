@@ -34,12 +34,14 @@
 - 取り込んだ予約をアプリで削除すると、次回の取り込みでは再び「新規」として表示されます
 - シート側で名前・日付・時刻を直した行は別の予約として扱い、既存の予約は上書きしません(同じ日の同名・同時刻の予約があれば「既存予約と重複?」と表示)
 - 支払状況の初期値は「未収」です(支払状況の列がある場合はその値、取り込み画面で切り替え可)
-- 読み込めるのは「1行1予約」のGoogleスプレッドシートです。Excel形式(.xlsx)や、日付が横に並ぶカレンダー形式のシートは読み込めません
-- 読み込みは閲覧のみの権限(`spreadsheets.readonly` / `calendar.readonly`)で、接続したユーザーのGoogleアカウントの権限で行います。アクセストークンはブラウザのメモリ上にだけ保持します
+- 読み込めるのは Googleスプレッドシートと、Drive 上の Excel(.xlsx)です
+  - 1行1予約の表: 列の対応づけを指定して取り込み
+  - カレンダー形式(月別シートで、A列に「日付」「予定1」…のラベル、日付が横に並び、セルに予約確定メールの本文が入る形式): 月別シートをまとめて読み込み、メール本文からお客様名・日時・プランを、「売上」行から金額を読み取ります。キャンセルの記載がある予約と、確定メールではないセル(社内利用など)は対象外です
+- 読み込みは閲覧のみの権限(`spreadsheets.readonly` / `calendar.readonly` / `drive.readonly`)で、接続したユーザーのGoogleアカウントの権限で行います。アクセストークンはブラウザのメモリ上にだけ保持します
 
 初期設定(Google Cloud Console、プロジェクト `studiomanager-5eb1d`):
 
-1. 「Google Sheets API」と「Google Calendar API」を有効にする
+1. 「Google Sheets API」「Google Calendar API」「Google Drive API」を有効にする
 2. OAuth同意画面を設定する
 3. 「認証情報」→「OAuthクライアントID」(ウェブアプリケーション)を作成し、承認済みのJavaScript生成元に `https://studio.metalandtokyo.xyz` などを追加する
 4. 発行されたクライアントIDを `index.html` の `GOOGLE_OAUTH_CLIENT_ID` に設定する
