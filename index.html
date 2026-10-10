@@ -2407,7 +2407,7 @@
   let tokenClient = null;
   // a token granted before a scope was added (e.g. drive.readonly) must be requested again
   function googleTokenValid(){ return !!googleToken && Date.now() < googleToken.expiresAt - 60000 && GOOGLE_SCOPES.split(" ").every(x=> (googleToken.scope||"").split(" ").includes(x)); }
-  function requestGoogleToken(){
+  function requestGoogleToken(switchAccount){
     return new Promise((resolve, reject)=>{
       if(!GOOGLE_OAUTH_CLIENT_ID){ reject(new Error("Google連携の初期設定(OAuthクライアントID)がまだです")); return; }
       if(!(window.google && google.accounts && google.accounts.oauth2)){ reject(new Error("Googleのログイン部品を読み込めませんでした。ページを再読み込みしてください")); return; }
@@ -2423,7 +2423,8 @@
         },
         error_callback: (err)=> reject(new Error(err && err.type==="popup_closed" ? "Googleのログイン画面が閉じられました" : "Googleに接続できませんでした")),
       });
-      tokenClient.requestAccessToken({ prompt: googleToken ? "" : "consent" });
+      // "" lets Google skip the consent screen when this account already granted the scopes
+      tokenClient.requestAccessToken({ prompt: switchAccount ? "select_account" : "" });
     });
   }
   async function ensureGoogleToken(){
@@ -2528,8 +2529,9 @@
   }
   $("btnGoogleConnect").addEventListener("click", async ()=>{
     try{
-      if(googleTokenValid()){ try{ google.accounts.oauth2.revoke(googleToken.accessToken, ()=>{}); }catch(e){} googleToken = null; }
-      await requestGoogleToken();
+      const switching = googleTokenValid();
+      if(switching){ try{ google.accounts.oauth2.revoke(googleToken.accessToken, ()=>{}); }catch(e){} googleToken = null; }
+      await requestGoogleToken(switching);
       toast("Googleに接続しました");
       if(importSource==="sheet") await loadSheetTabs();
     }catch(e){ toast(e.message); }
