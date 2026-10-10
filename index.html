@@ -84,15 +84,6 @@
   .pagehead h1{ font-size:1.4rem; font-weight:800; margin:0; }
   .pagehead .sub{ color:var(--text-dim); font-size:.85rem; }
 
-  #globalHeader{
-    display:flex; align-items:center; justify-content:space-between; gap:20px;
-    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-    box-shadow:var(--shadow); padding:14px 20px; margin-bottom:22px; flex-wrap:wrap;
-  }
-  #globalHeader .gh-stats{ display:flex; gap:28px; flex-wrap:wrap; }
-  #globalHeader .gh-label{ color:var(--text-dim); font-size:.76rem; margin-bottom:2px; }
-  #globalHeader .gh-value{ font-size:1.5rem; font-weight:800; }
-
   .view{ display:none; }
   .view.active{ display:block; }
 
@@ -306,8 +297,6 @@
     #sidebar .foot{ display:none; }
     #main{ padding:18px 16px 50px; }
     .kpis{ grid-template-columns:repeat(2,1fr); }
-    #globalHeader{ flex-direction:column; align-items:stretch !important; gap:14px !important; }
-    #globalHeader .gh-stats{ justify-content:space-between; }
   }
 </style>
 
@@ -363,28 +352,6 @@
   </nav>
 
   <main id="main">
-
-    <!-- ================= GLOBAL HEADER ================= -->
-    <div id="globalHeader">
-      <div class="gh-stats">
-        <div class="gh-stat">
-          <div class="gh-label">全スタジオ売上合計</div>
-          <div class="gh-value" id="ghTotal">-</div>
-        </div>
-        <div class="gh-stat">
-          <div class="gh-label">予約件数</div>
-          <div class="gh-value" id="ghCount">-</div>
-        </div>
-      </div>
-      <div class="field" style="margin:0; min-width:160px;">
-        <label>対象月</label>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <button class="cal-navbtn" id="ghMonthPrev" type="button">‹</button>
-          <input type="month" id="ghMonth" style="flex:1;">
-          <button class="cal-navbtn" id="ghMonthNext" type="button">›</button>
-        </div>
-      </div>
-    </div>
 
     <!-- ================= DASHBOARD ================= -->
     <section class="view active" id="view-dashboard">
@@ -1280,26 +1247,6 @@
     $("dashMonth").value = shiftMonth($("dashMonth").value||curMonth, 1);
     renderDashboard();
   });
-
-  // ---------- global header (all-studio totals, independent month) ----------
-  $("ghMonth").value = curMonth;
-  $("ghMonth").addEventListener("change", renderGlobalHeader);
-  $("ghMonthPrev").addEventListener("click", ()=>{
-    $("ghMonth").value = shiftMonth($("ghMonth").value||curMonth, -1);
-    renderGlobalHeader();
-  });
-  $("ghMonthNext").addEventListener("click", ()=>{
-    $("ghMonth").value = shiftMonth($("ghMonth").value||curMonth, 1);
-    renderGlobalHeader();
-  });
-  function renderGlobalHeader(){
-    const m = $("ghMonth").value || curMonth;
-    const list = reservations.filter(r=>monthStr(r.date)===m);
-    const total = list.reduce((s,r)=>s+(r.total||0),0);
-    $("ghTotal").textContent = yen(total);
-    $("ghCount").textContent = list.length + "件";
-  }
-  renderGlobalHeader();
 
   // =====================================================================
   // DASHBOARD
@@ -3162,7 +3109,6 @@
     db.collection("reservations").onSnapshot(snap=>{
       reservations = snap.docs.map(d=>({id:d.id, ...d.data()}));
       renderCurrentView();
-      renderGlobalHeader();
     }, err=>console.error(err));
 
     db.collection("coupons").onSnapshot(snap=>{
