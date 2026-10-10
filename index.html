@@ -199,12 +199,12 @@
     color:var(--text); cursor:pointer; font-size:.9rem; display:flex; align-items:center; justify-content:center;
   }
   .cal-navbtn:hover{ background:var(--accent-soft); color:var(--accent); }
-  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:6px; margin-top:14px; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:6px; margin-top:14px; }
   .cal-dow{ text-align:center; font-size:.68rem; font-weight:700; color:var(--text-dim); padding-bottom:4px; }
   .cal-dow.sun{ color:#e5484d; } .cal-dow.sat{ color:var(--accent-2); }
   .cal-cell{
     background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
-    min-height:88px; padding:6px; display:flex; flex-direction:column; gap:3px; cursor:pointer;
+    min-height:88px; min-width:0; padding:6px; display:flex; flex-direction:column; gap:3px; cursor:pointer;
     transition:border-color .12s;
   }
   .cal-cell:hover{ border-color:var(--accent-2); }
@@ -226,8 +226,9 @@
   .cal-more:hover{ color:var(--accent); }
   @media (max-width:700px){
     .cal-grid{ gap:4px; }
-    .cal-cell{ min-height:64px; padding:4px; }
-    .cal-event{ font-size:.6rem; }
+    .cal-cell{ min-height:64px; padding:3px; border-radius:7px; }
+    .cal-event{ font-size:.58rem; padding:1px 3px; }
+    .cal-event .st{ display:none; }
   }
 
   /* ---------- Day detail modal ---------- */
@@ -3923,7 +3924,7 @@
     if(!wrap) return;
     if(!members.length){ wrap.innerHTML = `<div class="muted" style="font-size:.85rem;">メンバーがいません。</div>`; return; }
     wrap.innerHTML = `
-      <table style="width:100%; border-collapse:collapse; font-size:.85rem;">
+      <div class="tablewrap"><table style="width:100%; border-collapse:collapse; font-size:.85rem;">
         <thead>
           <tr style="text-align:left; color:var(--text-dim); border-bottom:1px solid var(--border);">
             <th style="padding:8px 6px;">メールアドレス</th>
@@ -3950,7 +3951,7 @@
           </tr>
         `).join("")}
         </tbody>
-      </table>
+      </table></div>
     `;
     wrap.querySelectorAll(".memberRoleSelect").forEach(sel=>{
       sel.addEventListener("change", async ()=>{
