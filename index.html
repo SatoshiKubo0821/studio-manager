@@ -1069,6 +1069,20 @@
   </div>
 </div>
 
+<!-- ================= APP CONFIRM MODAL ================= -->
+<!-- window.confirm() is silently answered "cancel" in some embedded browsers, so the app asks with its own dialog -->
+<div id="appConfirmOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.6); z-index:70; align-items:flex-start; justify-content:center; overflow-y:auto; padding:80px 16px;">
+  <div class="card" style="width:100%; max-width:440px; margin-top:0;">
+    <div class="card-body">
+      <div id="appConfirmText" style="white-space:pre-wrap; font-size:.9rem; line-height:1.6;"></div>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:18px;">
+        <button class="btn ghost" id="btnAppConfirmCancel" type="button">キャンセル</button>
+        <button class="btn primary" id="btnAppConfirmOk" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ================= COPY CONFIRM MODAL ================= -->
 <div id="copyConfirmOverlay" style="display:none; position:fixed; inset:0; background:rgba(10,10,20,.6); z-index:60; align-items:flex-start; justify-content:center; overflow-y:auto; padding:32px 16px;">
   <div class="card" style="width:100%; max-width:560px; margin-top:0;">
@@ -1123,6 +1137,23 @@
   function toast(msg){
     const t=$("toast"); t.textContent=msg; t.classList.add("show");
     clearTimeout(toast._h); toast._h=setTimeout(()=>t.classList.remove("show"),2200);
+  }
+  function appConfirm(message, opts){
+    opts = opts || {};
+    return new Promise(resolve=>{
+      const ov = $("appConfirmOverlay"), ok = $("btnAppConfirmOk"), cancel = $("btnAppConfirmCancel");
+      $("appConfirmText").textContent = message;
+      ok.textContent = opts.okLabel || "OK";
+      ok.className = "btn " + (opts.danger ? "danger" : "primary");
+      const done = (v)=>{ ov.style.display = "none"; ok.onclick = cancel.onclick = ov.onclick = null; document.removeEventListener("keydown", onKey); resolve(v); };
+      const onKey = (e)=>{ if(e.key==="Escape") done(false); };
+      ok.onclick = ()=>done(true);
+      cancel.onclick = ()=>done(false);
+      ov.onclick = (e)=>{ if(e.target===ov) done(false); };
+      document.addEventListener("keydown", onKey);
+      ov.style.display = "flex";
+      ok.focus();
+    });
   }
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -1879,7 +1910,7 @@
   });
   $("btnDeleteReservation").addEventListener("click", async ()=>{
     if(!editingReservationId) return;
-    if(!confirm("この予約を削除しますか？")) return;
+    if(!await appConfirm("この予約を削除しますか？", {okLabel:"削除する", danger:true})) return;
     await deleteReservation(editingReservationId);
     closeReservationModal();
   });
@@ -1949,7 +1980,7 @@
   });
   $("btnDeleteCoupon").addEventListener("click", async ()=>{
     if(!editingCouponId) return;
-    if(!confirm("このクーポンを削除しますか？")) return;
+    if(!await appConfirm("このクーポンを削除しますか？", {okLabel:"削除する", danger:true})) return;
     await deleteCoupon(editingCouponId);
     closeCouponModal();
   });
@@ -2190,7 +2221,7 @@
   });
   $("btnDeleteTemplate").addEventListener("click", async ()=>{
     if(!editingTemplateId) return;
-    if(!confirm("このテンプレートを削除しますか？")) return;
+    if(!await appConfirm("このテンプレートを削除しますか？", {okLabel:"削除する", danger:true})) return;
     await deleteTemplate(editingTemplateId);
     closeTemplateModal();
   });
@@ -2354,7 +2385,7 @@
     const msg = count>0
       ? `このスタジオには${count}件の予約があります。スタジオを削除しても予約データは残りますが、スタジオ選択には表示されなくなります。削除しますか？`
       : "このスタジオを削除しますか？";
-    if(!confirm(msg)) return;
+    if(!await appConfirm(msg, {okLabel:"削除する", danger:true})) return;
     await deleteStudio(editingStudioId);
     closeStudioModal();
   });
@@ -2938,7 +2969,7 @@
     const st = importStudio(); if(!st) return;
     const picked = importRows.filter(r=>r.checked);
     if(!picked.length) return;
-    if(!confirm(`${st.name} に ${picked.length} 件の予約を取り込みます。よろしいですか？`)) return;
+    if(!await appConfirm(`${st.name} に ${picked.length} 件の予約を取り込みます。よろしいですか？`, {okLabel:`${picked.length} 件を取り込む`})) return;
     const btn = $("btnRunImport"); btn.disabled = true; btn.textContent = "取り込み中…";
     const now = new Date().toISOString();
     const defPay = $("iDefaultPay").value;
@@ -3180,7 +3211,7 @@
     });
     wrap.querySelectorAll(".memberRemoveBtn").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
-        if(!confirm(`${btn.dataset.email} のアクセス権を削除しますか？\n(ログインアカウント自体はFirebase Consoleから別途削除できます)`)) return;
+        if(!await appConfirm(`${btn.dataset.email} のアクセス権を削除しますか？\n(ログインアカウント自体はFirebase Consoleから別途削除できます)`, {okLabel:"削除する", danger:true})) return;
         try{ await db.collection("users").doc(btn.dataset.uid).delete(); toast("メンバーを削除しました"); }
         catch(e){ toast("削除に失敗しました: "+(e&&e.message||e)); }
       });
