@@ -1933,6 +1933,10 @@
       <td>${r.paymentStatus==="入金済"?'<span class="pill good">入金済</span>':'<span class="pill warn">未収</span>'}</td>
       <td><button class="btn sm ghost" data-open-res="${r.id}">開く</button></td></tr>`).join("");
     $("cmHistory").querySelectorAll("[data-open-res]").forEach(b=> b.addEventListener("click", ()=>{ closeCustomerModal(); openReservationModal(b.dataset.openRes); }));
+    // profile edits and merges are for managers and admins; staff can view
+    const editable = myRole==="admin" || myRole==="manager";
+    ["cmName","cmTags","cmContact","cmSns","cmMemo","cmCaution","cmCautionNote","cmMergeTarget"].forEach(id=> $(id).disabled = !editable);
+    $("btnCustSave").hidden = !editable; $("btnCustMerge").hidden = !editable;
     $("custModalOverlay").style.display = "flex";
   }
   function closeCustomerModal(){ $("custModalOverlay").style.display = "none"; }
