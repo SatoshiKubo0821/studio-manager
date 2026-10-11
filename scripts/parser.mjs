@@ -27,7 +27,7 @@ export function loadParser(){
   const parserSource = [
     ...["pad2", "label0", "cellText", "normKey", "RANGE_RE", "MEMO_RANGE_RE", "hhmm"].map(grabConst),
     ...["localDateStr", "parseDateCell", "parseAmount", "parsePay", "isGridTab", "gridDate", "matchPlan",
-        "mailFromOtherStudio", "findRange", "guessName", "extractShootInfo", "colLetter", "parseGridTab", "parseGridCell",
+        "mailFromOtherStudio", "findRange", "guessName", "extractShootInfo", "extractPeople", "colLetter", "parseGridTab", "parseGridCell",
         "classifyImportRows", "reservationDocFromRow"].map(grabFunction),
   ].join("\n");
   // share Date with the caller so `instanceof Date` works on SheetJS dates
