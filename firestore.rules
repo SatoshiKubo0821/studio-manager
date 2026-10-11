@@ -24,10 +24,24 @@ service cloud.firestore {
     // exist). Without this, nobody could ever become the first admin,
     // because isAdmin() itself requires an existing users/{uid} doc.
     // This path closes permanently once system/bootstrap is written.
+    // Pending re-invites keyed by e-mail: a removed member's login account still exists,
+    // so instead of creating a new account the admin leaves an invite that the person
+    // redeems on their next sign-in (creating their own users/{uid} with the invited role).
+    match /invites/{email} {
+      allow read: if isSignedIn() && (isAdmin() || request.auth.token.email == email);
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.token.email == email);
+    }
+
     match /users/{userId} {
       allow read: if isSignedIn();
       allow update, delete: if isAdmin();
       allow create: if isAdmin() || (
+        isSignedIn() &&
+        request.auth.uid == userId &&
+        exists(/databases/$(database)/documents/invites/$(request.auth.token.email)) &&
+        request.resource.data.role == get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.role
+      ) || (
         isSignedIn() &&
         request.auth.uid == userId &&
         request.resource.data.role == 'admin' &&

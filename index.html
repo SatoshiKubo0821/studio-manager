@@ -3968,7 +3968,7 @@
     });
     wrap.querySelectorAll(".memberRemoveBtn").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
-        if(!await appConfirm(`${btn.dataset.email} のアクセス権を削除しますか？\n(ログインアカウント自体はFirebase Consoleから別途削除できます)`, {okLabel:"削除する", danger:true})) return;
+        if(!await appConfirm(`${btn.dataset.email} のアクセス権を削除しますか？\n(同じメールアドレスで招待し直せば、また利用できるようになります)`, {okLabel:"削除する", danger:true})) return;
         try{ await db.collection("users").doc(btn.dataset.uid).delete(); toast("メンバーを削除しました"); }
         catch(e){ toast("削除に失敗しました: "+(e&&e.message||e)); }
       });
@@ -4003,7 +4003,19 @@
       toast("メンバーを招待しました(パスワード設定メールを送信しました)");
       closeInviteModal();
     }catch(e){
-      $("inviteErr").textContent = authErrorMessage(e);
+      if(e && e.code==="auth/email-already-in-use"){
+        // Removing a member only deletes the users/{uid} doc; the login account remains.
+        // Re-invite by leaving a pending invite that is redeemed on their next sign-in.
+        try{
+          if(members.some(m=>normalizeEmail(m.email)===email)){ $("inviteErr").textContent = "このメールアドレスはすでにメンバーです"; return; }
+          await db.collection("invites").doc(email).set({ email, role, createdAt:new Date().toISOString(), createdBy: currentUserEmail || null });
+          await auth.sendPasswordResetEmail(email);
+          toast("再招待しました(パスワード設定メールを送信しました。次回ログイン時にメンバーに戻ります)");
+          closeInviteModal();
+        }catch(e2){ $("inviteErr").textContent = authErrorMessage(e2); }
+      } else {
+        $("inviteErr").textContent = authErrorMessage(e);
+      }
     }finally{
       try{ await secondary.delete(); }catch(_e){}
       btn.disabled = false;
@@ -4087,6 +4099,18 @@
     // firestore.rules (a user may create their own doc as "admin" only
     // while system/bootstrap doesn't exist yet), so this path closes for
     // good right after this write.
+    // a pending re-invite (for an account whose member record was removed earlier)
+    const em = normalizeEmail(user.email);
+    try{
+      const inv = await db.collection("invites").doc(em).get();
+      if(inv.exists){
+        const role = inv.data().role || "staff";
+        await ref.set({ email: em, role, createdAt:new Date().toISOString(), createdBy: inv.data().createdBy || "reinvite" });
+        try{ await inv.ref.delete(); }catch(_e){}
+        myRole = role;
+        return true;
+      }
+    }catch(_e){}
     const bootstrapRef = db.collection("system").doc("bootstrap");
     const bootstrapSnap = await bootstrapRef.get();
     if(!bootstrapSnap.exists){
