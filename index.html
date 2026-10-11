@@ -2315,6 +2315,8 @@
     $("fSns").value = r? (r.sns||"") : (prefill.sns||"");
     $("fWork").value = r? (r.workTitle||"") : "";
     $("fPeople").value = r && r.people ? r.people : "";
+    $("fPeople").dataset.orig = $("fPeople").value;
+    $("fPeople").dataset.manual = r && r.peopleManual ? "1" : "";
     $("fPayMethod").value = r? (r.paymentMethod||"銀行振込") : "銀行振込";
     $("fPayStatus").value = r? (r.paymentStatus||"未収") : "未収";
     $("fNotes").value = r? (r.notes||"") : (prefill.parsedFromMail ? "問い合わせメールの自動解析から作成(内容を確認してください)" : "");
@@ -2360,6 +2362,8 @@
       customerName: $("fName").value.trim(), contact: $("fContact").value.trim(),
       sns: $("fSns").value.trim(), workTitle: $("fWork").value.trim(),
       people: $("fPeople").value ? Math.max(1, Math.round(Number($("fPeople").value))) : null,
+      // a hand-entered group size is never replaced by the sheet sync
+      peopleManual: !!$("fPeople").dataset.manual || $("fPeople").value !== $("fPeople").dataset.orig,
       paymentMethod: $("fPayMethod").value, paymentStatus: $("fPayStatus").value,
       notes: $("fNotes").value.trim(), updatedAt: new Date().toISOString(),
     };
@@ -3444,7 +3448,8 @@
           const patch = {};
           if(!(ex.workTitle||"").trim() && r.workTitle) patch.workTitle = r.workTitle;
           if(!(ex.purpose||"").trim() && r.purpose) patch.purpose = r.purpose;
-          if(ex.people==null && r.people) patch.people = r.people;
+          // group size is re-read unless it was entered by hand (earlier versions misread some e-mails)
+          if(r.people && !ex.peopleManual && ex.people !== r.people) patch.people = r.people;
           return Object.keys(patch).length ? [ex.id, patch] : null;
         }).filter(Boolean);
         for(let j=0; j<fills.length; j+=400){
@@ -3556,37 +3561,39 @@
     const first = t.split("\n").map(x=>x.trim()).find(Boolean) || "";
     return first.slice(0,30);
   }
-  // Shoot content from the e-mail: "【撮影内容】" / "【撮影予定作品】" (work / character) and
-  // "【利用目的】". Replies quote the form, so the value is often on the next ">"-prefixed line.
-  function extractShootInfo(t){
+  // Form fields quoted in the e-mail: "【撮影内容】", "作品名・キャラクター名：…",
+  // "撮影予定の作品名・キャラ名(アンケート)：…", "【利用目的】", "ご利用人数：5" …
+  // Replies quote the form with ">", so the value is often on the next line.
+  function formFields(t){
     const lines = String(t||"").split("\n").map(l=>l.replace(/^[>＞\s]+/,"").trim());
-    const pick = (labels)=>{
-      const re = new RegExp(`^[■●・◆]?\\s*(?:[【\\[]\\s*(?:${labels})\\s*[】\\]]|(?:${labels})\\s*[:：]|(?:${labels})\\s*$)\\s*[:：]?\\s*(.*)$`);
-      for(let i=0; i<lines.length; i++){
-        const m = lines[i].match(re); if(!m) continue;
-        let v = m[1].trim();
-        if(!v){ v = lines.slice(i+1).find(Boolean) || ""; }
-        if(/^[【\[■]/.test(v)) v = "";
-        if(v) return v.slice(0,80);
-      }
-      return "";
-    };
-    return { work: pick("撮影内容|撮影予定作品|撮影作品名?|作品名|作品・キャラクター|キャラクター名?"), purpose: pick("ご?利用目的") };
+    const out = [];
+    lines.forEach((l,i)=>{
+      const m = l.match(/^[■●・◆]?\s*[【\[]\s*([^】\]]{1,40})\s*[】\]]\s*[:：]?\s*(.*)$/) || l.match(/^[■●・◆]?\s*([^:：【\[]{1,40}?)\s*[:：]\s*(.*)$/);
+      if(!m) return;
+      let v = m[2].trim();
+      if(!v){ v = lines.slice(i+1).find(Boolean) || ""; if(/^[【\[■]/.test(v)) v = ""; }
+      out.push({ label: m[1].trim(), value: v });
+    });
+    return out;
   }
-  // Group size: "【ご利用人数】" (value on the same or next line), "6名様でのご利用",
-  // or a plan written as "…(3名様)". Returns a number or null.
+  function extractShootInfo(t){
+    const f = formFields(t);
+    const find = (test)=>{ const x = f.find(x=> test(x.label) && x.value); return x ? x.value.slice(0,80) : ""; };
+    return {
+      work: find(l=> /撮影内容|作品|キャラ/.test(l) && !/人数|追加|料金|お問/.test(l)),
+      purpose: find(l=> /利用目的/.test(l)),
+    };
+  }
+  // Group size: "【ご利用人数】2名" / "ご利用人数：5", "6名様でのご利用", or a plan written
+  // as "…(3名様)". Returns a number or null.
   function extractPeople(t, planName){
-    const lines = String(t||"").split("\n").map(l=>l.replace(/^[>＞\s]+/,"").trim());
-    const num = (v)=>{ const m = String(v||"").match(/(\d{1,2})\s*(?:名|人)/); const n = m ? Number(m[1]) : NaN; return n>=1 && n<=40 ? n : null; };
-    for(let i=0; i<lines.length; i++){
-      const m = lines[i].match(/^[■●・◆]?\s*[【\[]?\s*ご?利用人数\s*[】\]]?\s*[:：]?\s*(.*)$/);
-      if(!m) continue;
-      const v = num(m[1]) ?? num(lines.slice(i+1).find(Boolean));
-      if(v) return v;
-    }
+    const ok = (n)=> n>=1 && n<=40 ? n : null;
+    const f = formFields(t).find(x=> /^ご?利用人数$/.test(x.label.replace(/\s*[(（].*$/,"")) && x.value);
+    if(f){ const m = f.value.match(/^(\d{1,2})\s*(?:名|人)?/); if(m && ok(Number(m[1]))) return Number(m[1]); }
     const inline = String(t||"").normalize("NFKC").match(/(\d{1,2})\s*名様?でのご利用/);
-    if(inline) return Number(inline[1]);
-    return num((String(planName||"").match(/[((]\s*(\d{1,2}\s*名様?)\s*[))]/)||[])[1]);
+    if(inline && ok(Number(inline[1]))) return Number(inline[1]);
+    const pm = String(planName||"").match(/[((]\s*(\d{1,2})\s*名様?\s*[))]/);
+    return pm ? ok(Number(pm[1])) : null;
   }
   // A cell counts as a booking when it holds a confirmation e-mail ("ご予約日時") or when the
   // sheet's 売上 row has an amount for it (inquiry-form copies, booking-site requests, staff use…).

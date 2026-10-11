@@ -55,7 +55,7 @@ admin.initializeApp({ credential: admin.credential.cert(key), projectId: key.pro
 const db = admin.firestore();
 
 const studios = (await db.collection("studios").get()).docs.map(d=>({ id: d.id, plans: [], options: [], ...d.data() }));
-const reservations = (await db.collection("reservations").select("studioId", "date", "startTime", "customerName", "importKey", "workTitle", "purpose", "people").get()).docs.map(d=>({ id: d.id, ...d.data() }));
+const reservations = (await db.collection("reservations").select("studioId", "date", "startTime", "customerName", "importKey", "workTitle", "purpose", "people", "peopleManual").get()).docs.map(d=>({ id: d.id, ...d.data() }));
 P.studios = studios;
 P.reservations = reservations;
 // classifyImportRows reads the global `reservations`; expose it inside the sandbox
@@ -88,7 +88,7 @@ for(const st of studios.filter(s=>s.sheetId)){
       const patch = {};
       if(!(ex.workTitle || "").trim() && r.workTitle) patch.workTitle = r.workTitle;
       if(!(ex.purpose || "").trim() && r.purpose) patch.purpose = r.purpose;
-      if(ex.people == null && r.people) patch.people = r.people;
+      if(r.people && !ex.peopleManual && ex.people !== r.people) patch.people = r.people;
       return Object.keys(patch).length ? [ex.id, patch] : null;
     }).filter(Boolean);
     if(!DRY_RUN){
