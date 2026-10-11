@@ -402,6 +402,7 @@
             <button class="cal-navbtn" id="dashMonthNext" type="button">›</button>
           </div>
         </div>
+        <div class="muted" id="syncStatus" style="font-size:.72rem; align-self:flex-end; text-align:right; max-width:220px;"></div>
         <button class="btn primary" id="btnSyncSheets" type="button" style="align-self:flex-end;" title="全スタジオの予約表から新しい予約を取り込みます">↻ 予約表から更新</button>
       </div>
 
@@ -1361,6 +1362,17 @@
       ok.focus();
     });
   }
+  // Customer names on screen show the family name only: "安栖 敏晴" → "安栖 ＊＊＊＊".
+  // Without a space we keep the first two characters (one for two-character names).
+  // Placeholders like "(名前不明…)" are shown as they are. Edit fields keep the full name.
+  function maskName(name){
+    const n = String(name||"").trim();
+    if(!n || /^[((]/.test(n)) return n;
+    const parts = n.normalize("NFKC").split(/\s+/).filter(Boolean);
+    if(parts.length>=2) return parts[0] + " ＊＊＊＊";
+    const chars = [...n];
+    return chars.slice(0, chars.length<=2 ? 1 : 2).join("") + "＊＊＊＊";
+  }
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   }
@@ -1599,7 +1611,7 @@
       return `<tr>
         <td>${escapeHtml(r.date||"")}</td>
         ${studioCell}
-        <td>${escapeHtml(r.customerName||"")}</td>
+        <td>${escapeHtml(maskName(r.customerName))}</td>
         <td>${escapeHtml(r.workTitle||"")}</td>
       </tr>`;
     }).join("");
@@ -1629,7 +1641,7 @@
         <td>${escapeHtml(r.startTime||"")}〜${escapeHtml(r.endTime||"")}</td>
         ${studioCell}
         <td>${escapeHtml(r.planName||"")}</td>
-        <td>${cautionInfo(r.customerName)?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}${escapeHtml(r.customerName||"")}</td>
+        <td>${cautionInfo(r.customerName)?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}${escapeHtml(maskName(r.customerName))}</td>
         <td class="num">${yen(r.total)}</td>
         <td>${escapeHtml(r.paymentMethod||"")}</td>
         <td>${statusPill}</td>
@@ -1714,7 +1726,7 @@
       const tx = m.tx;
       const studioNote = currentStudioId===ALL;
       const options = m.candidates.map(r=>
-        `<option value="${r.id}">${escapeHtml(r.date||"")} ${escapeHtml(r.customerName||"氏名未入力")}${studioNote?"（"+escapeHtml(studioName(r.studioId))+"）":""} / ${yen(r.total)}</option>`
+        `<option value="${r.id}">${escapeHtml(r.date||"")} ${escapeHtml(r.customerName?maskName(r.customerName):"氏名未入力")}${studioNote?"（"+escapeHtml(studioName(r.studioId))+"）":""} / ${yen(r.total)}</option>`
       ).join("");
       const selectHtml = m.candidates.length
         ? `<select data-match="${i}">${options}</select>`
@@ -1760,7 +1772,7 @@
       return `<tr data-id="${r.id}">
         <td>${escapeHtml(r.date||"")}</td>
         ${studioCell}
-        <td>${cautionInfo(r.customerName)?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}${escapeHtml(r.customerName||"")}</td>
+        <td>${cautionInfo(r.customerName)?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}${escapeHtml(maskName(r.customerName))}</td>
         <td class="num">${yen(r.total)}</td>
         <td><button class="btn sm ghost" data-markpaid="${r.id}">入金済みにする</button></td>
       </tr>`;
@@ -1893,7 +1905,7 @@
     $("custCount").textContent = `${list.length.toLocaleString("ja-JP")}人を表示(全${all.length.toLocaleString("ja-JP")}人)`;
     $("customersEmpty").hidden = list.length>0;
     $("customersBody").innerHTML = list.slice(0, 500).map(g=>`<tr data-cust="${escapeHtml(g.key)}" style="cursor:pointer;">
-        <td>${g.caution?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}<strong>${escapeHtml(g.name)}</strong>${g.tags.map(t=>` <span class="pill muted">${escapeHtml(t)}</span>`).join("")}${g.memo?`<div class="hint" style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(g.memo)}</div>`:""}</td>
+        <td>${g.caution?'<span title="要注意顧客" style="color:var(--warn);">⚠ </span>':""}<strong>${escapeHtml(maskName(g.name))}</strong>${g.tags.map(t=>` <span class="pill muted">${escapeHtml(t)}</span>`).join("")}${g.memo?`<div class="hint" style="max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(g.memo)}</div>`:""}</td>
         <td class="muted" style="font-size:.78rem;">${escapeHtml(g.contact||"-")}${g.sns?`<br>${escapeHtml(g.sns)}`:""}</td>
         <td>${Array.from(g.studioIds).map(id=>`<span class="pill studio"><span class="studio-dot" style="background:${studioColor(id)}"></span>${escapeHtml(studioName(id))}</span>`).join(" ")}</td>
         <td class="num">${g.count}</td><td class="num">${yen(g.total)}</td><td class="num">${yen(g.avg)}</td>
@@ -1946,7 +1958,7 @@
     const everyone = buildCustomers(reservations);
     const g = everyone.find(x=>x.key===key); if(!g) return;
     editingCustKey = key;
-    $("custModalTitle").textContent = `顧客カルテ — ${g.name}`;
+    $("custModalTitle").textContent = `顧客カルテ — ${maskName(g.name)}`;
     $("custCautionBanner").hidden = !g.caution;
     $("custCautionBanner").textContent = g.caution ? `⚠ 要注意顧客: ${g.cautionNote||"(理由未記入)"}` : "";
     $("cmCount").textContent = g.count+"回"; $("cmTotal").textContent = yen(g.total); $("cmAvg").textContent = yen(g.avg);
@@ -1957,7 +1969,7 @@
     // merge candidates: names sharing the first two characters come first
     const head2 = key.slice(0,2);
     const others = everyone.filter(x=>x.key!==key).sort((a,b)=> (b.key.startsWith(head2)-a.key.startsWith(head2)) || a.name.localeCompare(b.name,"ja"));
-    $("cmMergeTarget").innerHTML = `<option value="">同一人物の顧客を選んで統合…</option>` + others.slice(0,400).map(x=>`<option value="${escapeHtml(x.key)}">${escapeHtml(x.name)}(${x.count}回・${escapeHtml(x.last||"")})</option>`).join("");
+    $("cmMergeTarget").innerHTML = `<option value="">同一人物の顧客を選んで統合…</option>` + others.slice(0,400).map(x=>`<option value="${escapeHtml(x.key)}">${escapeHtml(maskName(x.name))}(${x.count}回・${escapeHtml(x.last||"")})</option>`).join("");
     $("cmHistory").innerHTML = g.res.slice().reverse().map(r=>`<tr>
       <td>${escapeHtml(r.date||"")}</td>
       <td><span class="pill studio"><span class="studio-dot" style="background:${studioColor(r.studioId)}"></span>${escapeHtml(studioName(r.studioId))}</span></td>
@@ -1992,7 +2004,7 @@
     if(!editingCustKey || !target){ toast("統合先を選んでください"); return; }
     const everyone = buildCustomers(reservations);
     const from = everyone.find(x=>x.key===editingCustKey), to = everyone.find(x=>x.key===target);
-    if(!await appConfirm(`「${from.name}」(${from.count}回)を「${to.name}」(${to.count}回)に統合します。予約データはそのままで、顧客管理上は同一人物として扱います。よろしいですか？`, {okLabel:"統合する"})) return;
+    if(!await appConfirm(`「${maskName(from.name)}」(${from.count}回)を「${maskName(to.name)}」(${to.count}回)に統合します。予約データはそのままで、顧客管理上は同一人物として扱います。よろしいですか？`, {okLabel:"統合する"})) return;
     try{
       // carry over profile fields the target doesn't have yet
       const td = customerDocs[target] || {}, fd = customerDocs[editingCustKey] || {};
@@ -2062,7 +2074,7 @@
       const eventsHtml = shown.map(r=>{
         const color = currentStudioId===ALL ? studioColor(r.studioId) : "var(--accent)";
         const unpaidCls = r.paymentStatus==="未収" ? "unpaid" : "";
-        const label = (r.startTime||"") + " " + (r.customerName||r.planName||"");
+        const label = (r.startTime||"") + " " + (r.customerName ? maskName(r.customerName) : (r.planName||""));
         return `<div class="cal-event ${unpaidCls}" style="background:${color}" data-open-res="${r.id}" title="${escapeHtml(label)}">${escapeHtml(label)}</div>`;
       }).join("");
       const moreHtml = restCount>0 ? `<div class="cal-more" data-day-more="${dateIso}">+${restCount}件</div>` : "";
@@ -2103,7 +2115,7 @@
       return `<div class="dayitem" data-open-res="${r.id}">
         <div class="time">${escapeHtml(r.startTime||"")}〜${escapeHtml(r.endTime||"")}</div>
         <div class="desc">
-          <div>${escapeHtml(r.customerName||"(未入力)")} ${studioTag}</div>
+          <div>${escapeHtml(r.customerName?maskName(r.customerName):"(未入力)")} ${studioTag}</div>
           <div class="plan">${escapeHtml(r.planName||"")} ・ ${yen(r.total)}</div>
         </div>
         ${statusPill}
@@ -3755,7 +3767,7 @@
         <td>${STATUS_PILL[r.status]}${(r.error||r.warn)?`<div class="hint">${escapeHtml(r.srcLabel)}: ${escapeHtml(r.error||r.warn)}</div>`:""}</td>
         <td>${escapeHtml(r.date||"-")}</td>
         <td>${escapeHtml(r.startTime||"")}${r.endTime?"〜"+escapeHtml(r.endTime):""}</td>
-        <td>${escapeHtml(r.customerName||"")}${r.planName?`<div class="hint">${escapeHtml(r.planName)}</div>`:""}</td>
+        <td>${escapeHtml(maskName(r.customerName))}${r.planName?`<div class="hint">${escapeHtml(r.planName)}</div>`:""}</td>
         <td class="num">${r.total!=null?yen(r.total):"-"}<div class="hint">${pay}</div></td>
         <td class="muted" style="max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(r.notes||"")}</td>
       </tr>`;
@@ -3929,6 +3941,11 @@
       if(templates.length===0) seedDefaultTemplate();
       if(activeViewName()==="mail") renderTemplateList();
     }, err=>console.error(err));
+
+    db.collection("system").doc("sheetSync").onSnapshot(d=>{
+      const x = d.exists ? d.data() : null;
+      $("syncStatus").textContent = x ? `自動取り込み: ${fmtDateTime(x.at)} 新規${x.added||0}件` : "";
+    }, ()=>{});
 
     db.collection("customers").onSnapshot(snap=>{
       customerDocs = Object.fromEntries(snap.docs.map(d=>[d.id, d.data()]));

@@ -10,6 +10,11 @@ service cloud.firestore {
 
     // One-time bootstrap marker. Once the first admin has been created,
     // this doc exists and closes the self-bootstrap path below for good.
+    // Result of the daily sheet sync (written by the GitHub Actions job with admin credentials)
+    match /system/sheetSync {
+      allow read: if isSignedIn();
+    }
+
     match /system/bootstrap {
       allow read: if isSignedIn();
       allow write: if isAdmin();
