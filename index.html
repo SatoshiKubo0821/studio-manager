@@ -402,6 +402,7 @@
             <button class="cal-navbtn" id="dashMonthNext" type="button">›</button>
           </div>
         </div>
+        <button class="btn primary" id="btnSyncSheets" type="button" style="align-self:flex-end;" title="全スタジオの予約表から新しい予約を取り込みます">↻ 予約表から更新</button>
       </div>
 
       <div class="kpis">
@@ -1348,6 +1349,7 @@
       const ov = $("appConfirmOverlay"), ok = $("btnAppConfirmOk"), cancel = $("btnAppConfirmCancel");
       $("appConfirmText").textContent = message;
       ok.textContent = opts.okLabel || "OK";
+      cancel.hidden = !!opts.alert;
       ok.className = "btn " + (opts.danger ? "danger" : "primary");
       const done = (v)=>{ ov.style.display = "none"; ok.onclick = cancel.onclick = ov.onclick = null; document.removeEventListener("keydown", onKey); resolve(v); };
       const onKey = (e)=>{ if(e.key==="Escape") done(false); };
@@ -3271,9 +3273,7 @@
       document.head.appendChild(el);
     });
   }
-  async function loadSheetBook(){
-    const st = importStudio(); if(!st || !st.sheetId) return;
-    if(sheetBookFor===st.sheetId && sheetBook) return;
+  async function fetchSheetBook(st){
     const meta = await googleGet(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(st.sheetId)}?fields=mimeType,name&supportsAllDrives=true`);
     let book;
     if(meta.mimeType==="application/vnd.google-apps.spreadsheet"){
@@ -3292,6 +3292,12 @@
     } else {
       throw new Error("スプレッドシート(Googleスプレッドシート / Excel)ではないファイルです: "+meta.mimeType);
     }
+    return book;
+  }
+  async function loadSheetBook(){
+    const st = importStudio(); if(!st || !st.sheetId) return;
+    if(sheetBookFor===st.sheetId && sheetBook) return;
+    const book = await fetchSheetBook(st);
     sheetBook = book; sheetBookFor = st.sheetId;
     gridMode = book.some(isGridTab);
     const gid = sheetGidFromUrl(st.sheetUrl);
@@ -3335,6 +3341,55 @@
   });
   $("iHeaderRow").addEventListener("change", ()=>{ if(sheetValues){ renderMappingUI(true); buildSheetRows(); } });
   $("iSheetTab").addEventListener("change", ()=>{ sheetValues = null; $("iMappingWrap").hidden = true; $("iPreviewWrap").hidden = true; });
+
+  // ---------- "更新": pull new bookings from every studio's sheet ----------
+  // Only rows classified "new" are written. Rows that look like an existing booking
+  // ("既存予約と重複?"), unreadable rows and non-grid sheets are left for the manual import screen.
+  async function syncAllSheets(onProgress){
+    const targets = studios.filter(st=>st.sheetId);
+    const results = [];
+    for(let i=0; i<targets.length; i++){
+      const st = targets[i];
+      onProgress && onProgress(i, targets.length, st);
+      const res = { studio: st.name, added: 0, sum: 0, conflict: 0, error: 0, note: "" };
+      try{
+        const book = await fetchSheetBook(st);
+        if(!book.some(isGridTab)){ res.note = "1行1予約の表のため、スタジオ管理の「取り込み」から手動で取り込んでください"; results.push(res); continue; }
+        const rows = classifyImportRows(book.filter(isGridTab).flatMap(t=>parseGridTab(t, st)), st);
+        const picked = rows.filter(r=>r.status==="new");
+        res.conflict = rows.filter(r=>r.status==="conflict").length;
+        res.error = rows.filter(r=>r.status==="error").length;
+        const now = new Date().toISOString();
+        for(let j=0; j<picked.length; j+=400){
+          const batch = db.batch();
+          picked.slice(j,j+400).forEach(r=> batch.set(db.collection("reservations").doc(), reservationDocFromRow(st, r, "sheet", now, "未収")));
+          await batch.commit();
+          // keep the in-memory list current so the next studio's duplicate check sees these
+          picked.slice(j,j+400).forEach(r=> reservations.push({ studioId: st.id, date: r.date, startTime: r.startTime, customerName: r.customerName, importKey: r.importKey }));
+        }
+        res.added = picked.length; res.sum = picked.reduce((a,r)=>a+(r.total||0),0);
+        try{ await db.collection("studios").doc(st.id).update({ lastSheetImportAt: now }); }catch(_e){}
+      }catch(e){ res.note = "読み込みに失敗: " + (e && e.message || e); }
+      results.push(res);
+    }
+    return results;
+  }
+  $("btnSyncSheets").addEventListener("click", async ()=>{
+    const btn = $("btnSyncSheets"); const label = btn.textContent;
+    btn.disabled = true; btn.textContent = "Googleに接続中…";
+    try{
+      await ensureGoogleToken();   // first, while the click still counts as a user gesture (popup)
+      const results = await syncAllSheets((i,n,st)=>{ btn.textContent = `取り込み中… (${i+1}/${n}) ${st.name}`; });
+      const added = results.reduce((a,r)=>a+r.added,0), sum = results.reduce((a,r)=>a+r.sum,0);
+      const lines = results.map(r=> `・${r.studio}: ` + (r.note ? r.note : `新規 ${r.added}件${r.added?`(${yen(r.sum)})`:""}${r.conflict?` / 要確認 ${r.conflict}件`:""}`));
+      const anyConflict = results.some(r=>r.conflict);
+      await appConfirm(`予約表から ${added} 件を取り込みました${added?`(合計 ${yen(sum)})`:""}。\n\n${lines.join("\n")}` +
+        (anyConflict ? "\n\n「要確認」は既存の予約と重複している可能性がある行です。必要ならスタジオ管理の「取り込み」から確認して取り込んでください。" : ""),
+        { okLabel: "閉じる", alert: true });
+      renderCurrentView();
+    }catch(e){ toast(e.message || String(e)); }
+    finally{ btn.disabled = false; btn.textContent = label; }
+  });
 
   // ---------- calendar-style workbook ----------
   // Layout: column A has labels; a "日付" row with one date per column; then repeating blocks
@@ -3643,7 +3698,10 @@
 
   // ---------- shared preview / import ----------
   function finalizeRows(rows){
-    const st = importStudio();
+    importRows = classifyImportRows(rows, importStudio());
+    renderImportPreview();
+  }
+  function classifyImportRows(rows, st){
     const existingKeys = new Set(reservations.filter(r=>r.importKey).map(r=>r.importKey));
     const mine = reservations.filter(r=>r.studioId===st.id);
     const slotTaken = new Set(mine.filter(r=>r.startTime).map(r=>`${r.date}|${r.startTime}`));
@@ -3660,8 +3718,23 @@
       const caution = cautionInfo(r.customerName);
       if(caution) r.warn = [r.warn, "要注意顧客: "+caution].filter(Boolean).join(" / ");
     });
-    importRows = rows;
-    renderImportPreview();
+    return rows;
+  }
+  function reservationDocFromRow(st, r, source, now, defPay){
+    const plan = matchPlan(st, r.planName);
+    const total = r.total!=null ? r.total : (plan ? plan.price : 0);
+    return {
+      studioId: st.id, studioName: st.name,
+      date: r.date, isHoliday: !!r.isHoliday, startTime: r.startTime, endTime: r.endTime,
+      planId: plan? plan.id : "", planName: plan? plan.name : r.planName, planPrice: plan? plan.price : 0,
+      optionIds: [], optionsTotal: 0, extensionHours: 0, extensionFee: 0,
+      couponCode: "", couponDiscount: 0, subtotal: total, total,
+      customerName: r.customerName, contact: r.contact||"", sns: r.sns||"", workTitle: r.workTitle||"",
+      paymentMethod: "銀行振込", paymentStatus: r.payRaw ? parsePay(r.payRaw, defPay) : defPay,
+      notes: r.notes||"",
+      importSource: source, importKey: r.importKey, importedAt: now,
+      createdAt: now, updatedAt: now,
+    };
   }
   const STATUS_PILL = {
     new:      `<span class="pill good">新規</span>`,
@@ -3722,20 +3795,7 @@
       for(let i=0; i<picked.length; i+=400){
         const batch = db.batch();
         picked.slice(i,i+400).forEach(r=>{
-          const plan = matchPlan(st, r.planName);
-          const total = r.total!=null ? r.total : (plan ? plan.price : 0);
-          batch.set(db.collection("reservations").doc(), {
-            studioId: st.id, studioName: st.name,
-            date: r.date, isHoliday: !!r.isHoliday, startTime: r.startTime, endTime: r.endTime,
-            planId: plan? plan.id : "", planName: plan? plan.name : r.planName, planPrice: plan? plan.price : 0,
-            optionIds: [], optionsTotal: 0, extensionHours: 0, extensionFee: 0,
-            couponCode: "", couponDiscount: 0, subtotal: total, total,
-            customerName: r.customerName, contact: r.contact, sns: r.sns, workTitle: r.workTitle,
-            paymentMethod: "銀行振込", paymentStatus: r.payRaw ? parsePay(r.payRaw, defPay) : defPay,
-            notes: r.notes,
-            importSource: importSource, importKey: r.importKey, importedAt: now,
-            createdAt: now, updatedAt: now,
-          });
+          batch.set(db.collection("reservations").doc(), reservationDocFromRow(st, r, importSource, now, defPay));
         });
         await batch.commit();
         picked.slice(i,i+400).forEach(r=>{ r.status = "imported"; r.checked = false; });
@@ -3909,6 +3969,7 @@
   const MANAGER_PLUS_VIEWS = ["studios","coupons","settings"];
 
   function applyRoleUI(){
+    $("btnSyncSheets").hidden = !(myRole==="admin" || myRole==="manager");
     document.querySelectorAll(".navbtn").forEach(btn=>{
       const v = btn.dataset.view;
       let visible = true;
