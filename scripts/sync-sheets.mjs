@@ -55,7 +55,7 @@ admin.initializeApp({ credential: admin.credential.cert(key), projectId: key.pro
 const db = admin.firestore();
 
 const studios = (await db.collection("studios").get()).docs.map(d=>({ id: d.id, plans: [], options: [], ...d.data() }));
-const reservations = (await db.collection("reservations").select("studioId", "date", "startTime", "customerName", "importKey").get()).docs.map(d=>d.data());
+const reservations = (await db.collection("reservations").select("studioId", "date", "startTime", "customerName", "importKey", "workTitle", "purpose").get()).docs.map(d=>({ id: d.id, ...d.data() }));
 P.studios = studios;
 P.reservations = reservations;
 // classifyImportRows reads the global `reservations`; expose it inside the sandbox
@@ -64,7 +64,7 @@ vm.runInContext("var reservations = this.reservations;", P);
 const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
 const results = [];
 for(const st of studios.filter(s=>s.sheetId)){
-  const res = { studio: st.name, added: 0, sum: 0, conflict: 0, error: 0, note: "" };
+  const res = { studio: st.name, added: 0, sum: 0, filled: 0, conflict: 0, error: 0, note: "" };
   try{
     const book = await fetchBook(st.sheetId);
     if(!book.some(t=>P.isGridTab(t))){ res.note = "1行1予約の表のため対象外(アプリの取り込み画面から手動で)"; results.push(res); continue; }
@@ -81,6 +81,23 @@ for(const st of studios.filter(s=>s.sheetId)){
       }
       await db.collection("studios").doc(st.id).update({ lastSheetImportAt: now });
     }
+    // fill in shoot content for bookings imported before it was read from the e-mails
+    const byKey = new Map(reservations.filter(x=>x.importKey && x.id).map(x=>[x.importKey, x]));
+    const fills = rows.filter(r=>r.status === "imported").map(r=>{
+      const ex = byKey.get(r.importKey); if(!ex) return null;
+      const patch = {};
+      if(!(ex.workTitle || "").trim() && r.workTitle) patch.workTitle = r.workTitle;
+      if(!(ex.purpose || "").trim() && r.purpose) patch.purpose = r.purpose;
+      return Object.keys(patch).length ? [ex.id, patch] : null;
+    }).filter(Boolean);
+    if(!DRY_RUN){
+      for(let i = 0; i < fills.length; i += 400){
+        const batch = db.batch();
+        fills.slice(i, i + 400).forEach(([id, patch])=> batch.update(db.collection("reservations").doc(id), patch));
+        await batch.commit();
+      }
+    }
+    res.filled = fills.length;
     picked.forEach(r=> reservations.push({ studioId: st.id, date: r.date, startTime: r.startTime, customerName: r.customerName, importKey: r.importKey }));
     res.added = picked.length;
     res.sum = picked.reduce((a, r)=>a + (r.total || 0), 0);
@@ -88,7 +105,7 @@ for(const st of studios.filter(s=>s.sheetId)){
     res.note = "読み込みに失敗: " + (e?.response?.data?.error?.message || e.message || e);
   }
   results.push(res);
-  console.log(`${res.studio}: +${res.added} (¥${res.sum.toLocaleString("ja-JP")}) conflict=${res.conflict} error=${res.error} ${res.note}`);
+  console.log(`${res.studio}: +${res.added} (¥${res.sum.toLocaleString("ja-JP")}) filled=${res.filled||0} conflict=${res.conflict} error=${res.error} ${res.note}`);
 }
 
 if(!DRY_RUN){

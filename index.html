@@ -449,15 +449,15 @@
       </div>
 
       <div class="card">
-        <div class="card-head"><h2>作品一覧</h2></div>
+        <div class="card-head"><h2>撮影内容一覧(作品・キャラ)</h2><span class="muted" id="workListCount" style="font-size:.75rem;"></span></div>
         <div class="card-body" style="padding:0;">
           <div class="tablewrap">
             <table>
-              <thead><tr><th>日付</th><th id="thWorkStudio" hidden>スタジオ</th><th>お客様</th><th>撮影作品名</th></tr></thead>
+              <thead><tr><th>日付</th><th>時間</th><th id="thWorkStudio" hidden>スタジオ</th><th>お客様</th><th>撮影内容(作品・キャラ)</th><th>利用目的</th></tr></thead>
               <tbody id="workListBody"></tbody>
             </table>
           </div>
-          <div class="empty" id="workListEmpty" hidden>この月は「撮影作品名」が入力された予約がありません。</div>
+          <div class="empty" id="workListEmpty" hidden>この月の予約はありません。</div>
         </div>
       </div>
     </section>
@@ -1602,17 +1602,20 @@
 
     // work title list (撮影作品名)
     $("thWorkStudio").hidden = currentStudioId!==ALL;
-    const works = list.filter(r=>(r.workTitle||"").trim())
-      .sort((a,b)=> (a.date+ (a.startTime||"")).localeCompare(b.date+(b.startTime||"")));
+    const works = list.slice().sort((a,b)=> (a.date+(a.startTime||"")).localeCompare(b.date+(b.startTime||"")));
+    const withWork = works.filter(r=>(r.workTitle||"").trim()).length;
+    $("workListCount").textContent = works.length ? `${works.length}件中 ${withWork}件に撮影内容あり` : "";
     $("workListEmpty").hidden = works.length>0;
     $("workListBody").innerHTML = works.map(r=>{
       const studioCell = currentStudioId===ALL
         ? `<td><span class="pill studio"><span class="studio-dot" style="background:${studioColor(r.studioId)}"></span>${escapeHtml(studioName(r.studioId))}</span></td>` : "";
       return `<tr>
         <td>${escapeHtml(r.date||"")}</td>
+        <td>${escapeHtml(r.startTime||"")}</td>
         ${studioCell}
         <td>${escapeHtml(maskName(r.customerName))}</td>
-        <td>${escapeHtml(r.workTitle||"")}</td>
+        <td>${r.workTitle?escapeHtml(r.workTitle):'<span class="muted">-</span>'}</td>
+        <td class="muted">${escapeHtml(r.purpose||"")}</td>
       </tr>`;
     }).join("");
   }
@@ -3380,6 +3383,21 @@
           picked.slice(j,j+400).forEach(r=> reservations.push({ studioId: st.id, date: r.date, startTime: r.startTime, customerName: r.customerName, importKey: r.importKey }));
         }
         res.added = picked.length; res.sum = picked.reduce((a,r)=>a+(r.total||0),0);
+        // fill in shoot content for bookings imported before it was read from the e-mails
+        const byKey = new Map(reservations.filter(x=>x.importKey && x.id).map(x=>[x.importKey, x]));
+        const fills = rows.filter(r=>r.status==="imported").map(r=>{
+          const ex = byKey.get(r.importKey); if(!ex) return null;
+          const patch = {};
+          if(!(ex.workTitle||"").trim() && r.workTitle) patch.workTitle = r.workTitle;
+          if(!(ex.purpose||"").trim() && r.purpose) patch.purpose = r.purpose;
+          return Object.keys(patch).length ? [ex.id, patch] : null;
+        }).filter(Boolean);
+        for(let j=0; j<fills.length; j+=400){
+          const batch = db.batch();
+          fills.slice(j,j+400).forEach(([id,patch])=> batch.update(db.collection("reservations").doc(id), patch));
+          await batch.commit();
+        }
+        res.filled = fills.length;
         try{ await db.collection("studios").doc(st.id).update({ lastSheetImportAt: now }); }catch(_e){}
       }catch(e){ res.note = "読み込みに失敗: " + (e && e.message || e); }
       results.push(res);
@@ -3393,7 +3411,7 @@
       await ensureGoogleToken();   // first, while the click still counts as a user gesture (popup)
       const results = await syncAllSheets((i,n,st)=>{ btn.textContent = `取り込み中… (${i+1}/${n}) ${st.name}`; });
       const added = results.reduce((a,r)=>a+r.added,0), sum = results.reduce((a,r)=>a+r.sum,0);
-      const lines = results.map(r=> `・${r.studio}: ` + (r.note ? r.note : `新規 ${r.added}件${r.added?`(${yen(r.sum)})`:""}${r.conflict?` / 要確認 ${r.conflict}件`:""}`));
+      const lines = results.map(r=> `・${r.studio}: ` + (r.note ? r.note : `新規 ${r.added}件${r.added?`(${yen(r.sum)})`:""}${r.conflict?` / 要確認 ${r.conflict}件`:""}${r.filled?` / 撮影内容を補完 ${r.filled}件`:""}`));
       const anyConflict = results.some(r=>r.conflict);
       await appConfirm(`予約表から ${added} 件を取り込みました${added?`(合計 ${yen(sum)})`:""}。\n\n${lines.join("\n")}` +
         (anyConflict ? "\n\n「要確認」は既存の予約と重複している可能性がある行です。必要ならスタジオ管理の「取り込み」から確認して取り込んでください。" : ""),
@@ -3483,6 +3501,23 @@
     const first = t.split("\n").map(x=>x.trim()).find(Boolean) || "";
     return first.slice(0,30);
   }
+  // Shoot content from the e-mail: "【撮影内容】" / "【撮影予定作品】" (work / character) and
+  // "【利用目的】". Replies quote the form, so the value is often on the next ">"-prefixed line.
+  function extractShootInfo(t){
+    const lines = String(t||"").split("\n").map(l=>l.replace(/^[>＞\s]+/,"").trim());
+    const pick = (labels)=>{
+      const re = new RegExp(`^[■●・◆]?\\s*(?:[【\\[]\\s*(?:${labels})\\s*[】\\]]|(?:${labels})\\s*[:：]|(?:${labels})\\s*$)\\s*[:：]?\\s*(.*)$`);
+      for(let i=0; i<lines.length; i++){
+        const m = lines[i].match(re); if(!m) continue;
+        let v = m[1].trim();
+        if(!v){ v = lines.slice(i+1).find(Boolean) || ""; }
+        if(/^[【\[■]/.test(v)) v = "";
+        if(v) return v.slice(0,80);
+      }
+      return "";
+    };
+    return { work: pick("撮影内容|撮影予定作品|撮影作品名?|作品名|作品・キャラクター|キャラクター名?"), purpose: pick("ご?利用目的") };
+  }
   // A cell counts as a booking when it holds a confirmation e-mail ("ご予約日時") or when the
   // sheet's 売上 row has an amount for it (inquiry-form copies, booking-site requests, staff use…).
   function parseGridCell(raw, date, ex, srcLabel, st){
@@ -3528,7 +3563,8 @@
       mailDate && mailDate!==date && `確定メール上の日付は ${mailDate}(シートの ${date} 欄に記載)`,
       planName && !matchPlan(st, planName) && `メール記載プラン: ${planName}`,
       !hasMail && `シートの記載: ${t.replace(/\s+/g," ").slice(0,120)}`, ...extras].filter(Boolean).join(" / ");
-    return { ...base, startTime, endTime, customerName, planName, total,
+    const shoot = extractShootInfo(t);
+    return { ...base, startTime, endTime, customerName, planName, total, workTitle: shoot.work, purpose: shoot.purpose,
       isHoliday: /土日祝/.test(planName) && dow>=1 && dow<=5,
       warn: warns.join(" / "),
       notes,
@@ -3741,7 +3777,7 @@
       planId: plan? plan.id : "", planName: plan? plan.name : r.planName, planPrice: plan? plan.price : 0,
       optionIds: [], optionsTotal: 0, extensionHours: 0, extensionFee: 0,
       couponCode: "", couponDiscount: 0, subtotal: total, total,
-      customerName: r.customerName, contact: r.contact||"", sns: r.sns||"", workTitle: r.workTitle||"",
+      customerName: r.customerName, contact: r.contact||"", sns: r.sns||"", workTitle: r.workTitle||"", purpose: r.purpose||"",
       paymentMethod: "銀行振込", paymentStatus: r.payRaw ? parsePay(r.payRaw, defPay) : defPay,
       notes: r.notes||"",
       importSource: source, importKey: r.importKey, importedAt: now,
