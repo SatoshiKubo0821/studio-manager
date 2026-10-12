@@ -1354,6 +1354,9 @@
   };
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
+  // keep a local copy so reopening the app only downloads what changed (the Spark plan allows 50k reads/day,
+  // shared with Miraiz Manager in the same project)
+  db.enablePersistence({ synchronizeTabs:true }).catch(e=>console.warn("offline cache unavailable", e.code));
   const auth = firebase.auth();
 
   const $ = (id)=>document.getElementById(id);
