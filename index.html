@@ -2562,7 +2562,8 @@
 
   // Extra guests beyond what the plan includes: "人数追加…×2名" / "人数追加（1名分）" in the text,
   // else group size minus the base ("基本4名まで" in the form, or the plan's "(1〜2名様)").
-  // Priced with the studio's "人数追加" option (土日祝/平日 picked by the date). "" when unknown.
+  // Priced with the studio's "人数追加" option (土日祝/平日 picked by the date).
+  // Returns { text, amount }: text is "" when the count can't be worked out.
   function extraPeopleFromText(text, st, plan, dateStr){
     const t = String(text||"").normalize("NFKC");
     let n = null;
@@ -2573,12 +2574,12 @@
       const bm = t.match(/基本\s*(\d{1,2})\s*名まで/) || String(plan&&plan.name||"").normalize("NFKC").match(/\d{1,2}\s*[〜~～-]\s*(\d{1,2})\s*名/);
       if(people && bm) n = Math.max(0, people - Number(bm[1]));
     }
-    if(n==null) return "";
-    if(n===0) return "なし";
+    if(n==null) return { text:"", amount:0 };
+    if(n===0) return { text:"なし", amount:0 };
     const extras = (st && st.options || []).filter(o=>/人数追加/.test(o.name||"") && o.price>0);
     const weekend = dateStr ? isWeekendOrHoliday(dateStr, false) : null;
     const opt = extras.find(o=> weekend===true ? /土日祝/.test(o.name) : weekend===false ? /平日/.test(o.name) : false) || extras.find(o=>!/土日祝|平日/.test(o.name)) || extras[0];
-    return opt ? `${n}名(${yen(opt.price*n)})` : `${n}名`;
+    return opt ? { text:`${n}名(${yen(opt.price*n)})`, amount: opt.price*n } : { text:`${n}名`, amount:0 };
   }
 
   // ---- placeholder values built directly from the pasted text (no saved mail record) ----
@@ -2592,7 +2593,7 @@
     return {
       options: opts.map(o=>`${o.name}(${yen(o.price)})`).join("\n"),
       people: parsed.people ? `${parsed.people}名` : "",
-      extraPeople: extra,
+      extraPeople: extra.text,
       customerName: parsed.customerName || "",
       studioName: st? st.name : "",
       contact: parsed.contact || "",
@@ -2600,7 +2601,8 @@
       startTime: parsed.startTime || "",
       endTime: parsed.endTime || "",
       planName: plan? plan.name : "",
-      total: plan? yen(plan.price) : "",
+      // plan + options + extra guests
+      total: plan? yen(plan.price + opts.reduce((a,o)=>a+(o.price||0),0) + extra.amount) : "",
     };
   }
 
