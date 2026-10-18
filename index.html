@@ -2466,8 +2466,12 @@
     {key:"people", label:"利用人数"},
     {key:"extraPeople", label:"人数追加"},
   ];
+  // Variables can be written by key ({{planName}}) or by their Japanese label ({{プラン名}}).
   function fillTemplate(body, vals){
-    return (body||"").replace(/\{\{(\w+)\}\}/g, (m,k)=> (vals[k]!==undefined && vals[k]!==null && vals[k]!=="") ? vals[k] : m);
+    return (body||"").replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (m,k)=>{
+      const key = (PLACEHOLDERS.find(p=>p.label===k)||{}).key || k;
+      return (vals[key]!==undefined && vals[key]!==null && vals[key]!=="") ? vals[key] : m;
+    });
   }
   function populateMailStudioSelect(selectEl, selectedId){
     selectEl.innerHTML = studios.map(s=>`<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
@@ -2688,7 +2692,7 @@
     sel.value = t? (t.studioId||"") : (currentStudioId!==ALL? currentStudioId : "");
     $("tSubject").value = t? (t.subject||"") : "";
     $("tBody").value = t? (t.body||"") : "";
-    $("placeholderHints").innerHTML = PLACEHOLDERS.map(p=>`<span class="placeholder-chip" data-ph="{{${p.key}}}">{{${p.key}}} ${p.label}</span>`).join("");
+    $("placeholderHints").innerHTML = PLACEHOLDERS.map(p=>`<span class="placeholder-chip" data-ph="{{${p.label}}}">{{${p.label}}}</span>`).join("");
     $("placeholderHints").querySelectorAll(".placeholder-chip").forEach(chip=>{
       chip.addEventListener("click", ()=>{
         const ta = $("tBody"); const ph = chip.dataset.ph;
