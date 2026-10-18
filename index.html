@@ -267,6 +267,7 @@
   .tplcard .name{ font-weight:700; font-size:.85rem; }
   .tplcard .snippet{ font-size:.74rem; color:var(--text-dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .placeholder-hints{ display:flex; flex-wrap:wrap; gap:5px; margin-top:6px; }
+  .dev-tag{ margin-left:6px; font-size:.75em; font-weight:500; color:var(--text-dim); }
   .placeholder-chip{
     font-size:.68rem; font-weight:700; background:var(--surface-2); color:var(--accent-2);
     border:1px solid var(--border); border-radius:6px; padding:2px 7px; cursor:pointer; font-family:monospace;
@@ -383,7 +384,7 @@
     <div class="navrow">
       <button class="navbtn active" data-view="dashboard"><span class="dot"></span>ダッシュボード</button>
       <button class="navbtn" data-view="reservations"><span class="dot"></span>予約管理</button>
-      <button class="navbtn" data-view="reconcile"><span class="dot"></span>入金消込</button>
+      <button class="navbtn" data-view="reconcile"><span class="dot"></span>入金消込<span class="dev-tag">(開発中)</span></button>
       <button class="navbtn" data-view="customers"><span class="dot"></span>顧客管理</button>
       <button class="navbtn" data-view="coupons"><span class="dot"></span>クーポン</button>
       <button class="navbtn" data-view="mail"><span class="dot"></span>メール文章作成</button>
@@ -533,7 +534,7 @@
     <section class="view" id="view-reconcile">
       <div class="pagehead">
         <div>
-          <h1>入金消込</h1>
+          <h1>入金消込<span class="dev-tag">(開発中)</span></h1>
           <div class="sub" id="reconcileScopeLabel">銀行明細と未収予約をつき合わせて入金済みにする</div>
         </div>
       </div>
