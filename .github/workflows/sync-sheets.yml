@@ -1,0 +1,30 @@
+name: Sync booking sheets
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # 09:00 JST every day (GitHub may start a few minutes late)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Parse only, write nothing"
+        type: boolean
+        default: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TZ: Asia/Tokyo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci --no-audit --no-fund
+        working-directory: scripts
+      - run: node sync-sheets.mjs
+        working-directory: scripts
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
