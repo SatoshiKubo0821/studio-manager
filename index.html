@@ -2619,7 +2619,7 @@
     const t = templates.find(x=>x.id===tid);
     if(!t) return;
     const vals = buildPlaceholderValsFromText($("mailInboxBody").value, $("mailStudioSelect").value);
-    $("mailOutputBody").value = (t.subject? `【件名】${t.subject}\n\n`:"") + fillTemplate(t.body, vals);
+    $("mailOutputBody").value = (t.subject? `【件名】${fillTemplate(t.subject, vals)}\n\n`:"") + fillTemplate(t.body, vals);
   });
 
   // ---- copy confirmation dialog (always shown before actually writing to clipboard) ----
