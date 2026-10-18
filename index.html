@@ -2462,6 +2462,9 @@
     {key:"planName", label:"プラン名"},
     {key:"total", label:"合計金額"},
     {key:"contact", label:"連絡先"},
+    {key:"options", label:"オプション"},
+    {key:"people", label:"利用人数"},
+    {key:"extraPeople", label:"人数追加"},
   ];
   function fillTemplate(body, vals){
     return (body||"").replace(/\{\{(\w+)\}\}/g, (m,k)=> (vals[k]!==undefined && vals[k]!==null && vals[k]!=="") ? vals[k] : m);
@@ -2548,7 +2551,30 @@
     if(m) out.contact = m[0];
     else { m = text.match(/0\d{1,4}-?\d{1,4}-?\d{3,4}/); if(m) out.contact = m[0]; }
 
+    out.people = extractPeople(text, "");
+
     return out;
+  }
+
+  // Extra guests beyond what the plan includes: "人数追加…×2名" / "人数追加（1名分）" in the text,
+  // else group size minus the base ("基本4名まで" in the form, or the plan's "(1〜2名様)").
+  // Priced with the studio's "人数追加" option (土日祝/平日 picked by the date). "" when unknown.
+  function extraPeopleFromText(text, st, plan, dateStr){
+    const t = String(text||"").normalize("NFKC");
+    let n = null;
+    const m = t.match(/人数追加[^\n]*?[×x]\s*(\d{1,2})\s*名/) || t.match(/人数追加[^\n]*?\((\d{1,2})\s*名分?\)/);
+    if(m) n = Number(m[1]);
+    else {
+      const people = extractPeople(text, "");
+      const bm = t.match(/基本\s*(\d{1,2})\s*名まで/) || String(plan&&plan.name||"").normalize("NFKC").match(/\d{1,2}\s*[〜~～-]\s*(\d{1,2})\s*名/);
+      if(people && bm) n = Math.max(0, people - Number(bm[1]));
+    }
+    if(n==null) return "";
+    if(n===0) return "なし";
+    const extras = (st && st.options || []).filter(o=>/人数追加/.test(o.name||"") && o.price>0);
+    const weekend = dateStr ? isWeekendOrHoliday(dateStr, false) : null;
+    const opt = extras.find(o=> weekend===true ? /土日祝/.test(o.name) : weekend===false ? /平日/.test(o.name) : false) || extras.find(o=>!/土日祝|平日/.test(o.name)) || extras[0];
+    return opt ? `${n}名(${yen(opt.price*n)})` : `${n}名`;
   }
 
   // ---- placeholder values built directly from the pasted text (no saved mail record) ----
@@ -2556,7 +2582,13 @@
     const st = getStudio(studioId);
     const parsed = parseInquiryText(body||"", st);
     const plan = (st && parsed.planId) ? (st.plans||[]).find(p=>p.id===parsed.planId) : null;
+    const isExtra = (o)=> /人数追加/.test(o.name||"");
+    const opts = (st && st.options || []).filter(o=> (parsed.optionIds||[]).includes(o.id) && !isExtra(o));
+    const extra = extraPeopleFromText(body, st, plan, parsed.date);
     return {
+      options: opts.map(o=>`${o.name}(${yen(o.price)})`).join("\n"),
+      people: parsed.people ? `${parsed.people}名` : "",
+      extraPeople: extra,
       customerName: parsed.customerName || "",
       studioName: st? st.name : "",
       contact: parsed.contact || "",
