@@ -100,3 +100,11 @@ firebase deploy
 ```
 
 Hosting と Firestore ルールがまとめて反映されます。
+
+## 全事業ダッシュボード / 利用アプリの権限
+
+- サイドバーの「全事業ダッシュボード」(マネージャー以上、かつ Miraiz Manager を使えるメンバー): スタジオ事業(`reservations`)と写真事業(Miraiz Manager の `photoBookings`)の売上・入金済・未収・件数を月ごとに合算し、事業・店舗別と直近12か月の推移を表示。写真事業のデータは読むだけで、画面を開いたときに読み込みます
+- メンバー管理の「利用アプリ」: メンバーごとに Studio Manager / Miraiz Manager のどちらを使えるかを設定(`users/{uid}.apps` に `"studio"` / `"miraiz"`)。招待時にも選べます。`apps` が無い既存メンバーは両方、アドミンは常に両方
+  - Firestore ルールでも同じ条件で読み書きを制限しています(スタジオ側のコレクションは `studio`、`photoBookings` / `photoConfig` は `miraiz` が必要)
+  - Miraiz Manager だけのメンバーが Studio Manager にログインすると、Miraiz Manager へ案内します
+- サイドバーに「Miraiz Manager を開く」リンク(Miraiz を使えるメンバーのみ)。ドメインが別なのでログインはそれぞれ必要です

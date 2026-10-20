@@ -392,10 +392,12 @@
       <button class="navbtn" data-view="sns"><span class="dot"></span>SNS分析</button>
       <button class="navbtn" data-view="studios"><span class="dot"></span>スタジオ管理</button>
       <button class="navbtn" data-view="members" id="navMembers"><span class="dot"></span>メンバー管理</button>
+      <button class="navbtn" data-view="allbiz" id="navAllBiz"><span class="dot"></span>全事業ダッシュボード</button>
     </div>
     <div class="foot">
       <div id="currentUserLabel" style="font-weight:700; color:var(--text); margin-bottom:6px; word-break:break-all;"></div>
       <span class="foot-desc">複数スタジオ対応<br>予約・売上管理ツール<br></span>
+      <a class="miraiz-link" href="https://manager.miraizstudio.com" target="_blank" rel="noopener" hidden style="display:block; margin-top:6px; color:var(--accent); font-weight:700; text-decoration:none;">Miraiz Manager を開く ↗</a>
       <button class="btn sm ghost" id="btnLockNow" style="margin-top:8px; width:100%;">ログアウト</button>
     </div>
   </nav>
@@ -883,6 +885,51 @@
       </div>
     </section>
 
+    <!-- ================= ALL BUSINESSES ================= -->
+    <section class="view" id="view-allbiz">
+      <div class="pagehead">
+        <div>
+          <h1>全事業ダッシュボード</h1>
+          <div class="sub">スタジオ事業(Studio Manager)と写真事業(Miraiz Manager)の売上を合算</div>
+        </div>
+        <div class="field" style="margin:0;min-width:160px;">
+          <label>対象月</label>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button class="cal-navbtn" id="abMonthPrev" type="button">‹</button>
+            <input type="month" id="abMonth" style="flex:1;">
+            <button class="cal-navbtn" id="abMonthNext" type="button">›</button>
+          </div>
+        </div>
+      </div>
+      <div class="banner" id="abNote" hidden></div>
+      <div class="kpis">
+        <div class="kpi accent"><div class="label">全事業 売上合計</div><div class="value" id="abTotal">-</div><div class="hint" id="abTotalSub"></div></div>
+        <div class="kpi"><div class="label">スタジオ事業</div><div class="value" id="abStudio">-</div><div class="hint" id="abStudioSub"></div></div>
+        <div class="kpi"><div class="label">写真事業(Miraiz)</div><div class="value" id="abPhoto">-</div><div class="hint" id="abPhotoSub"></div></div>
+        <div class="kpi good"><div class="label">入金済</div><div class="value" id="abPaid">-</div></div>
+        <div class="kpi warn"><div class="label">未収</div><div class="value" id="abUnpaid">-</div></div>
+        <div class="kpi"><div class="label">件数</div><div class="value" id="abCount">-</div><div class="hint">予約・撮影の件数</div></div>
+        <div class="kpi"><div class="label">平均単価</div><div class="value" id="abAvg">-</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>事業・店舗別(対象月)</h2></div>
+        <div class="card-body" style="padding:0;"><div class="tablewrap"><table>
+          <thead><tr><th>事業</th><th>店舗</th><th class="num">件数</th><th class="num">売上</th><th class="num">入金済</th><th class="num">未収</th><th class="num">構成比</th></tr></thead>
+          <tbody id="abBizBody"></tbody></table></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>月別推移(直近12か月)</h2>
+          <span class="muted" style="font-size:.72rem;"><span style="display:inline-block;width:10px;height:10px;background:var(--accent);border-radius:2px;"></span> スタジオ事業 ・ <span style="display:inline-block;width:10px;height:10px;background:#c0875a;border-radius:2px;"></span> 写真事業</span>
+        </div>
+        <div class="card-body">
+          <svg class="chart" id="abChart" viewBox="0 0 900 200" preserveAspectRatio="none" style="height:200px;"></svg>
+          <div class="tablewrap" style="margin-top:12px;"><table>
+            <thead><tr><th>月</th><th class="num">スタジオ事業</th><th class="num">写真事業</th><th class="num">合計</th><th class="num">前年同月比</th></tr></thead>
+            <tbody id="abMonthBody"></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= MEMBERS ================= -->
     <section class="view" id="view-members">
       <div class="pagehead">
@@ -900,6 +947,7 @@
 
     <div class="mobile-only" style="text-align:center; margin-top:28px;">
       <div class="muted" id="mobileUserLabel" style="font-size:.75rem; margin-bottom:6px; word-break:break-all;"></div>
+      <a class="miraiz-link" href="https://manager.miraizstudio.com" target="_blank" rel="noopener" hidden style="display:block; margin-bottom:8px; color:var(--accent); font-weight:700; font-size:.8rem; text-decoration:none;">Miraiz Manager を開く ↗</a>
       <button class="btn sm ghost" type="button" onclick="document.getElementById('btnLockNow').click()">ログアウト</button>
     </div>
     <footer class="trademark app-trademark">© <span class="cy"></span> Metaland Tokyo株式会社 All rights reserved. ・ Studio Manager by Metaland Tokyo</footer>
@@ -1087,6 +1135,14 @@
           <option value="manager">マネージャー</option>
           <option value="admin">アドミン</option>
         </select>
+      </div>
+      <div class="field">
+        <label>利用できるアプリ</label>
+        <div style="display:flex; gap:14px; padding-top:4px;">
+          <label class="checkrow" style="margin:0;"><input type="checkbox" id="inviteAppStudio" checked style="width:auto;">Studio Manager</label>
+          <label class="checkrow" style="margin:0;"><input type="checkbox" id="inviteAppMiraiz" checked style="width:auto;">Miraiz Manager</label>
+        </div>
+        <div class="hint">Miraiz のスタッフには Miraiz Manager だけ、など。アドミンは常に両方使えます。</div>
       </div>
       <div class="muted" style="font-size:.78rem; margin-top:4px;">招待すると、本人にパスワード設定用のメールが送信されます。</div>
       <div class="lockerr" id="inviteErr"></div>
@@ -1451,6 +1507,9 @@
   let migrationChecked = false;
   let members = [];      // {id(=uid), email, role, createdAt}
   let myRole = null;     // "admin" | "manager" | "staff"
+  let myApps = [];       // apps this member may use: "studio" (this app) / "miraiz" (Miraiz Manager)
+  // members without an apps list (everyone invited before it existed) keep access to both; admins always have both
+  const appsOf = (d)=> d && (d.role==="admin" || !Array.isArray(d.apps)) ? ["studio","miraiz"] : (d && d.apps) || [];
   let currentUserUid = null;
 
   function getStudio(id){ return studios.find(s=>s.id===id); }
@@ -1492,6 +1551,7 @@
     if(v==="studios") renderStudiosList();
     if(v==="members") renderMembersList();
     if(v==="sns") renderSns();
+    if(v==="allbiz") renderAllBiz();
   }
 
   // ---------- studio switcher ----------
@@ -4135,6 +4195,85 @@
   }
 
   // =====================================================================
+  // ALL BUSINESSES: studio reservations + Miraiz Manager's photoBookings (read only)
+  // =====================================================================
+  let photoBookings = null;     // loaded the first time the view opens
+  let photoSubStarted = false, photoLoadError = "";
+  function ensurePhotoBookings(){
+    if(photoSubStarted) return;
+    photoSubStarted = true;
+    db.collection("photoBookings").onSnapshot(snap=>{
+      photoBookings = snap.docs.map(d=>({id:d.id, ...d.data()}));
+      photoLoadError = "";
+      if(activeViewName()==="allbiz") renderAllBiz();
+    }, err=>{ console.error(err); photoLoadError = err.code || err.message; photoSubStarted = false; if(activeViewName()==="allbiz") renderAllBiz(); });
+  }
+  $("abMonth").value = new Date().toISOString().slice(0,7);
+  $("abMonth").addEventListener("change", ()=>renderAllBiz());
+  $("abMonthPrev").addEventListener("click", ()=>{ $("abMonth").value = shiftMonth($("abMonth").value, -1); renderAllBiz(); });
+  $("abMonthNext").addEventListener("click", ()=>{ $("abMonth").value = shiftMonth($("abMonth").value, 1); renderAllBiz(); });
+
+  const photoLive = (b)=> b.status!=="キャンセル" && !b.productOnly;   // counts as a shoot
+  function bizSum(list, isPhoto){
+    const total = list.reduce((a,x)=>a+(Number(x.total)||0),0);
+    const paid = list.filter(x=>x.paymentStatus==="入金済").reduce((a,x)=>a+(Number(x.total)||0),0);
+    const count = isPhoto ? list.filter(photoLive).length : list.length;
+    return { total, paid, unpaid: total-paid, count };
+  }
+  function renderAllBiz(){
+    ensurePhotoBookings();
+    const m = $("abMonth").value || new Date().toISOString().slice(0,7);
+    const studioList = reservations.filter(r=>monthStr(r.date)===m);
+    const photoList = (photoBookings||[]).filter(b=>monthStr(b.date)===m && (Number(b.total)||0)>0);
+    const st = bizSum(studioList, false), ph = bizSum(photoList, true);
+    $("abNote").hidden = !(photoBookings===null || photoLoadError);
+    $("abNote").textContent = photoLoadError ? `写真事業のデータを読み込めませんでした(${photoLoadError})。Miraiz Manager の利用権限を確認してください。` : "写真事業のデータを読み込み中…";
+    const total = st.total + ph.total, count = st.count + ph.count;
+    $("abTotal").textContent = yen(total);
+    const prevTotal = reservations.filter(r=>monthStr(r.date)===shiftMonth(m,-12)).reduce((a,r)=>a+(Number(r.total)||0),0)
+      + (photoBookings||[]).filter(b=>monthStr(b.date)===shiftMonth(m,-12)).reduce((a,b)=>a+(Number(b.total)||0),0);
+    $("abTotalSub").textContent = prevTotal>0 ? `前年同月比 ${(total/prevTotal*100).toFixed(0)}%` : "";
+    $("abStudio").textContent = yen(st.total); $("abStudioSub").textContent = `${st.count}件`;
+    $("abPhoto").textContent = yen(ph.total); $("abPhotoSub").textContent = `${ph.count}件`;
+    $("abPaid").textContent = yen(st.paid + ph.paid);
+    $("abUnpaid").textContent = yen(st.unpaid + ph.unpaid);
+    $("abCount").textContent = count + "件";
+    $("abAvg").textContent = count ? yen(total/count) : "-";
+
+    // by business / studio
+    const rows = [];
+    const byStudio = {};
+    studioList.forEach(r=>{ (byStudio[r.studioId||"unknown"] = byStudio[r.studioId||"unknown"]||[]).push(r); });
+    Object.entries(byStudio).forEach(([sid, arr])=> rows.push({biz:"スタジオ事業", name:studioName(sid), color:studioColor(sid), ...bizSum(arr,false)}));
+    if(photoList.length || photoBookings) rows.push({biz:"写真事業", name:"Miraiz studio", color:"#c0875a", ...ph});
+    rows.sort((a,b)=>b.total-a.total);
+    $("abBizBody").innerHTML = rows.length ? rows.map(r=>`<tr>
+      <td>${r.biz}</td><td><span class="pill studio"><span class="studio-dot" style="background:${r.color}"></span>${escapeHtml(r.name)}</span></td>
+      <td class="num">${r.count}</td><td class="num">${yen(r.total)}</td><td class="num">${yen(r.paid)}</td>
+      <td class="num">${r.unpaid?`<span style="color:var(--warn);font-weight:700;">${yen(r.unpaid)}</span>`:"-"}</td>
+      <td class="num">${total>0?(r.total/total*100).toFixed(1)+"%":"-"}</td></tr>`).join("")
+      + `<tr><td colspan="2" style="font-weight:800;">合計</td><td class="num" style="font-weight:800;">${count}</td><td class="num" style="font-weight:800;">${yen(total)}</td><td class="num">${yen(st.paid+ph.paid)}</td><td class="num">${yen(st.unpaid+ph.unpaid)}</td><td></td></tr>`
+      : `<tr><td colspan="7" class="empty">データがありません</td></tr>`;
+
+    // last 12 months
+    const months = []; for(let i=11;i>=0;i--) months.push(shiftMonth(m,-i));
+    const sumBy = (list, mm)=> list.filter(x=>monthStr(x.date)===mm).reduce((a,x)=>a+(Number(x.total)||0),0);
+    const series = months.map(mm=>({ m:mm, s:sumBy(reservations,mm), p:sumBy(photoBookings||[],mm), prev: sumBy(reservations,shiftMonth(mm,-12)) + sumBy(photoBookings||[],shiftMonth(mm,-12)) }));
+    const W=900, H=200, padL=56, padB=20, padT=10, plotW=W-padL-10, plotH=H-padT-padB;
+    const max = Math.max(1, ...series.map(x=>x.s+x.p));
+    const slot = plotW/series.length, bw = slot*0.62;
+    let svg = `<line class="axis" x1="${padL}" y1="${H-padB}" x2="${W-6}" y2="${H-padB}"/><text x="4" y="${padT+6}">${yen(max)}</text><text x="4" y="${H-padB}">¥0</text>`;
+    series.forEach((x,i)=>{
+      const x0 = padL + i*slot + (slot-bw)/2, hs = x.s/max*plotH, hp = x.p/max*plotH;
+      svg += `<rect class="bar" x="${x0.toFixed(1)}" y="${(H-padB-hs).toFixed(1)}" width="${bw.toFixed(1)}" height="${hs.toFixed(1)}" rx="2"><title>${x.m} スタジオ事業 ${yen(x.s)}</title></rect>`;
+      svg += `<rect x="${x0.toFixed(1)}" y="${(H-padB-hs-hp).toFixed(1)}" width="${bw.toFixed(1)}" height="${hp.toFixed(1)}" rx="2" fill="#c0875a"><title>${x.m} 写真事業 ${yen(x.p)}</title></rect>`;
+      svg += `<text x="${(x0+bw/2).toFixed(1)}" y="${H-4}" text-anchor="middle">${Number(x.m.slice(5))}月</text>`;
+    });
+    $("abChart").innerHTML = svg;
+    $("abMonthBody").innerHTML = series.slice().reverse().map(x=>`<tr${x.m===m?' style="font-weight:700;"':""}><td>${x.m}</td><td class="num">${yen(x.s)}</td><td class="num">${yen(x.p)}</td><td class="num">${yen(x.s+x.p)}</td><td class="num">${x.prev>0?((x.s+x.p)/x.prev*100).toFixed(0)+"%":"-"}</td></tr>`).join("");
+  }
+
+  // =====================================================================
   // MEMBER MANAGEMENT (roles: admin / manager / staff)
   // =====================================================================
   const ROLE_LABEL = {admin:"アドミン", manager:"マネージャー", staff:"スタッフ"};
@@ -4142,12 +4281,15 @@
   const MANAGER_PLUS_VIEWS = ["studios","coupons","settings"];
 
   function applyRoleUI(){
+    document.querySelectorAll(".miraiz-link").forEach(a=> a.hidden = !myApps.includes("miraiz"));
     $("btnSyncSheets").hidden = !(myRole==="admin" || myRole==="manager");
     document.querySelectorAll(".navbtn").forEach(btn=>{
       const v = btn.dataset.view;
       let visible = true;
       if(ADMIN_ONLY_VIEWS.includes(v)) visible = myRole==="admin";
       else if(MANAGER_PLUS_VIEWS.includes(v)) visible = myRole==="admin" || myRole==="manager";
+      // the combined view reads Miraiz sales, so it also needs Miraiz access
+      if(v==="allbiz") visible = (myRole==="admin" || myRole==="manager") && myApps.includes("miraiz");
       btn.style.display = visible ? "" : "none";
     });
     const activeBtn = document.querySelector(".navbtn.active");
@@ -4170,6 +4312,7 @@
           <tr style="text-align:left; color:var(--text-dim); border-bottom:1px solid var(--border);">
             <th style="padding:8px 6px;">メールアドレス</th>
             <th style="padding:8px 6px;">ロール</th>
+            <th style="padding:8px 6px;">利用アプリ</th>
             <th style="padding:8px 6px;">登録日</th>
             <th style="padding:8px 6px;"></th>
           </tr>
@@ -4185,6 +4328,9 @@
                 <option value="staff" ${m.role==="staff"?"selected":""}>スタッフ</option>
               </select>
             </td>
+            <td style="padding:8px 6px; white-space:nowrap;">${m.role==="admin"
+              ? '<span class="muted" style="font-size:.78rem;">両方(アドミン)</span>'
+              : ["studio","miraiz"].map(a=>`<label class="checkrow" style="display:inline-flex; margin:0 10px 0 0; font-size:.8rem;"><input type="checkbox" class="memberAppCheck" data-uid="${m.id}" data-app="${a}" ${appsOf(m).includes(a)?"checked":""} style="width:auto;">${a==="studio"?"Studio":"Miraiz"}</label>`).join("")}</td>
             <td style="padding:8px 6px; color:var(--text-dim);">${(m.createdAt||"").slice(0,10)}</td>
             <td style="padding:8px 6px; text-align:right;">
               ${m.id===currentUserUid? "" : `<button class="btn sm danger memberRemoveBtn" data-uid="${m.id}" data-email="${escapeHtml(m.email||"")}">削除</button>`}
@@ -4200,6 +4346,15 @@
         catch(e){ toast("変更に失敗しました: "+(e&&e.message||e)); }
       });
     });
+    wrap.querySelectorAll(".memberAppCheck").forEach(cb=>{
+      cb.addEventListener("change", async ()=>{
+        const uid = cb.dataset.uid;
+        const apps = Array.from(wrap.querySelectorAll(`.memberAppCheck[data-uid="${uid}"]`)).filter(x=>x.checked).map(x=>x.dataset.app);
+        if(!apps.length){ cb.checked = true; toast("少なくとも1つのアプリは使えるようにしてください(使わせない場合は「削除」)"); return; }
+        try{ await db.collection("users").doc(uid).update({apps}); toast("利用アプリを変更しました"); }
+        catch(e){ cb.checked = !cb.checked; toast("変更に失敗しました: "+(e&&e.message||e)); }
+      });
+    });
     wrap.querySelectorAll(".memberRemoveBtn").forEach(btn=>{
       btn.addEventListener("click", async ()=>{
         if(!await appConfirm(`${btn.dataset.email} のアクセス権を削除しますか？\n(同じメールアドレスで招待し直せば、また利用できるようになります)`, {okLabel:"削除する", danger:true})) return;
@@ -4211,6 +4366,7 @@
 
   function openInviteModal(){
     $("inviteEmail").value = ""; $("inviteRole").value = "staff"; $("inviteErr").textContent = "";
+    $("inviteAppStudio").checked = true; $("inviteAppMiraiz").checked = true;
     $("inviteModalOverlay").style.display = "flex";
     $("inviteEmail").focus();
   }
@@ -4223,6 +4379,8 @@
     const email = normalizeEmail($("inviteEmail").value);
     const role = $("inviteRole").value;
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ $("inviteErr").textContent = "メールアドレスの形式が正しくありません"; return; }
+    const apps = [$("inviteAppStudio").checked && "studio", $("inviteAppMiraiz").checked && "miraiz"].filter(Boolean);
+    if(!apps.length){ $("inviteErr").textContent = "利用できるアプリを1つ以上選んでください"; return; }
     const btn = $("btnSubmitInvite");
     btn.disabled = true;
     const tempPassword = (window.crypto && crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).slice(2)+Date.now())) + "Aa1!";
@@ -4230,7 +4388,7 @@
     try{
       const cred = await secondary.auth().createUserWithEmailAndPassword(email, tempPassword);
       await db.collection("users").doc(cred.user.uid).set({
-        email, role, createdAt:new Date().toISOString(), createdBy: currentUserEmail || null,
+        email, role, apps, createdAt:new Date().toISOString(), createdBy: currentUserEmail || null,
       });
       await auth.sendPasswordResetEmail(email);
       try{ await secondary.auth().signOut(); }catch(_e){}
@@ -4242,7 +4400,7 @@
         // Re-invite by leaving a pending invite that is redeemed on their next sign-in.
         try{
           if(members.some(m=>normalizeEmail(m.email)===email)){ $("inviteErr").textContent = "このメールアドレスはすでにメンバーです"; return; }
-          await db.collection("invites").doc(email).set({ email, role, createdAt:new Date().toISOString(), createdBy: currentUserEmail || null });
+          await db.collection("invites").doc(email).set({ email, role, apps, createdAt:new Date().toISOString(), createdBy: currentUserEmail || null });
           await auth.sendPasswordResetEmail(email);
           toast("再招待しました(パスワード設定メールを送信しました。次回ログイン時にメンバーに戻ります)");
           closeInviteModal();
@@ -4326,7 +4484,8 @@
     const snap = await ref.get();
     if(snap.exists){
       myRole = snap.data().role || "staff";
-      return true;
+      myApps = appsOf(snap.data());
+      return myApps.includes("studio") ? true : "miraiz-only";
     }
     // Bootstrap: before the app has ever been set up, the first person to
     // sign in becomes the admin automatically. Guarded server-side by
@@ -4339,10 +4498,12 @@
       const inv = await db.collection("invites").doc(em).get();
       if(inv.exists){
         const role = inv.data().role || "staff";
-        await ref.set({ email: em, role, createdAt:new Date().toISOString(), createdBy: inv.data().createdBy || "reinvite" });
+        const invited = { email: em, role, createdAt:new Date().toISOString(), createdBy: inv.data().createdBy || "reinvite" };
+        if(Array.isArray(inv.data().apps)) invited.apps = inv.data().apps;
+        await ref.set(invited);
         try{ await inv.ref.delete(); }catch(_e){}
-        myRole = role;
-        return true;
+        myRole = role; myApps = appsOf(invited);
+        return myApps.includes("studio") ? true : "miraiz-only";
       }
     }catch(_e){}
     const bootstrapRef = db.collection("system").doc("bootstrap");
@@ -4350,7 +4511,7 @@
     if(!bootstrapSnap.exists){
       await ref.set({ email:user.email, role:"admin", createdAt:new Date().toISOString(), createdBy:"bootstrap" });
       await bootstrapRef.set({ done:true, by:user.uid, at:new Date().toISOString() });
-      myRole = "admin";
+      myRole = "admin"; myApps = ["studio","miraiz"];
       return true;
     }
     return false;
@@ -4363,9 +4524,11 @@
       let roleCheckError = null;
       try{ allowed = await ensureUserRole(user); }
       catch(e){ console.error("role check failed", e); roleCheckError = e; allowed = false; }
-      if(!allowed){
+      if(allowed!==true){
         showLockErr(roleCheckError
           ? "権限の確認に失敗しました。時間をおいて再度お試しください。"
+          : allowed==="miraiz-only"
+          ? "このアカウントは Miraiz Manager 専用です。manager.miraizstudio.com からログインしてください。"
           : "このアカウントは登録されていません。管理者に招待を依頼してください。");
         await auth.signOut();
         return;

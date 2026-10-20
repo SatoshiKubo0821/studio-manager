@@ -7,6 +7,13 @@ service cloud.firestore {
     }
     function isAdmin() { return isSignedIn() && myRole() == 'admin'; }
     function isManagerOrAdmin() { return isSignedIn() && (myRole() == 'admin' || myRole() == 'manager'); }
+    // Which app a member may use: "studio" (Studio Manager) / "miraiz" (Miraiz Manager).
+    // Members without an apps list (invited before it existed) keep both; admins always have both.
+    function hasApp(app) {
+      let me = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return me.role == 'admin' || !('apps' in me) || me.apps.hasAny([app]);
+    }
+    function canUse(app) { return isSignedIn() && hasApp(app); }
 
     // One-time bootstrap marker. Once the first admin has been created,
     // this doc exists and closes the self-bootstrap path below for good.
@@ -45,7 +52,8 @@ service cloud.firestore {
         isSignedIn() &&
         request.auth.uid == userId &&
         exists(/databases/$(database)/documents/invites/$(request.auth.token.email)) &&
-        request.resource.data.role == get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.role
+        request.resource.data.role == get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.role &&
+        request.resource.data.get('apps', null) == get(/databases/$(database)/documents/invites/$(request.auth.token.email)).data.get('apps', null)
       ) || (
         isSignedIn() &&
         request.auth.uid == userId &&
@@ -56,49 +64,49 @@ service cloud.firestore {
 
     // Studio configuration (plans, pricing, fixed costs, etc.)
     match /studios/{id} {
-      allow read: if isSignedIn();
-      allow write: if isManagerOrAdmin();
+      allow read: if canUse('studio');
+      allow write: if isManagerOrAdmin() && hasApp('studio');
     }
 
     // Coupons
     match /coupons/{id} {
-      allow read: if isSignedIn();
-      allow write: if isManagerOrAdmin();
+      allow read: if canUse('studio');
+      allow write: if isManagerOrAdmin() && hasApp('studio');
     }
 
     // Reservations: any signed-in member (including staff) can manage these.
     match /reservations/{id} {
-      allow read, write: if isSignedIn();
+      allow read, write: if canUse('studio');
     }
 
     // Customer profiles (CRM): contact, tags, memo, caution flag, merges — editable by managers+
     match /customers/{id} {
-      allow read: if isSignedIn();
-      allow write: if isManagerOrAdmin();
+      allow read: if canUse('studio');
+      allow write: if isManagerOrAdmin() && hasApp('studio');
     }
 
     // Monthly SNS figures per studio (entered by managers)
     match /snsStats/{id} {
-      allow read: if isSignedIn();
-      allow write: if isManagerOrAdmin();
+      allow read: if canUse('studio');
+      allow write: if isManagerOrAdmin() && hasApp('studio');
     }
 
     // Mail templates
     match /mailTemplates/{id} {
-      allow read: if isSignedIn();
-      allow write: if isManagerOrAdmin();
+      allow read: if canUse('studio');
+      allow write: if isManagerOrAdmin() && hasApp('studio');
     }
 
-    // ---- Photo Manager (写真事業・別アプリ。同じアカウント/ロールを使う) ----
+    // ---- Miraiz Manager (写真事業・別アプリ。同じアカウント/ロールを使い、users.apps に "miraiz" が必要) ----
     // Bookings & sales: any signed-in member (including staff) can manage these.
     match /photoBookings/{id} {
-      allow read, write: if isSignedIn();
+      allow read, write: if canUse('miraiz');
     }
 
     // Pricing, products, fixed costs
     match /photoConfig/{id} {
-      allow read: if isSignedIn();
-      allow write: if isManagerOrAdmin();
+      allow read: if canUse('miraiz');
+      allow write: if isManagerOrAdmin() && hasApp('miraiz');
     }
   }
 }
